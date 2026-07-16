@@ -1,0 +1,387 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  mobileNumber  String   @unique
+  passwordHash  String
+  uniqueUserId  String   @unique
+  username      String   @unique
+  profilePicUrl String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  familyMembers    FamilyMember[]
+  personsCreated   Person[]         @relation("PersonCreatedBy")
+  linkedPersons    Person[]         @relation("PersonLinkedUser")
+  profileRequests  ProfileRequest[] @relation("ProfileRequestedBy")
+  reviewedRequests ProfileRequest[] @relation("ProfileReviewedBy")
+  events           Event[]
+  uploadedMedia    Media[]
+  comments         Comment[]
+  likes            Like[]
+  stories          Story[]
+  notifications    Notification[]
+  storyViews       StoryView[]
+  treeLinksRequested TreeLink[]     @relation("TreeLinkRequestedBy")
+}
+
+// ─── Family Tree & Tree Nodes ─────────────────────────────────────────────────
+
+model FamilyTree {
+  id                String   @id @default(cuid())
+  name              String
+  rootPersonId      String?
+  timezone          String   @default("Asia/Karachi")
+  storageUsedBytes  BigInt   @default(0)
+  storageLimitBytes BigInt   @default(5368709120)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  members         FamilyMember[]
+  persons         Person[]
+  edges           RelationshipEdge[]
+  events          Event[]
+  stories         Story[]
+  notifications   Notification[]
+  profileRequests ProfileRequest[]
+  treeLinksA      TreeLink[]         @relation("TreeLinkA")
+  treeLinksB      TreeLink[]         @relation("TreeLinkB")
+}
+
+model Person {
+  id            String    @id @default(cuid())
+  familyTreeId  String
+  linkedUserId  String?
+  firstName     String
+  lastName      String
+  profilePicUrl String?
+  gender        Gender
+  dateOfBirth   DateTime?
+  isDeceased    Boolean   @default(false)
+  createdById   String
+  createdAt     DateTime  @default(now())
+
+  familyTree FamilyTree @relation(fields: [familyTreeId], references: [id], onDelete: Cascade)
+  linkedUser User?      @relation("PersonLinkedUser", fields: [linkedUserId], references: [id])
+  createdBy  User       @relation("PersonCreatedBy", fields: [createdById], references: [id])
+
+  edgesFrom RelationshipEdge[] @relation("EdgeFrom")
+  edgesTo   RelationshipEdge[] @relation("EdgeTo")
+  eventTags EventPerson[]
+
+  profileRequestsClaimed   ProfileRequest[] @relation("ClaimedRelatedTo")
+  profileRequestsDuplicate ProfileRequest[] @relation("PossibleDuplicate")
+  treeLinksPersonA         TreeLink[]       @relation("TreeLinkPersonA")
+  treeLinksPersonB         TreeLink[]       @relation("TreeLinkPersonB")
+
+  @@index([familyTreeId])
+}
+
+model RelationshipEdge {
+  id           String       @id @default(cuid())
+  treeId       String
+  fromPersonId String
+  toPersonId   String
+  relationType RelationType
+  createdAt    DateTime     @default(now())
+
+  tree       FamilyTree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  fromPerson Person     @relation("EdgeFrom", fields: [fromPersonId], references: [id], onDelete: Cascade)
+  toPerson   Person     @relation("EdgeTo", fields: [toPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([treeId, fromPersonId, toPersonId, relationType])
+  @@index([fromPersonId])
+  @@index([toPersonId])
+  @@index([treeId])
+}
+
+model FamilyMember {
+  userId   String
+  treeId   String
+  role     MemberRole @default(MEMBER)
+  joinedAt DateTime   @default(now())
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tree FamilyTree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, treeId])
+  @@index([treeId])
+}
+
+// ─── Join / Approval Workflow ─────────────────────────────────────────────────
+
+model ProfileRequest {
+  id                          String               @id @default(cuid())
+  treeId                      String
+  requestedById               String
+  firstName                   String
+  lastName                    String
+  mobileNumber                String
+  profilePicUrl               String?
+  claimedRelationType         RelationType
+  claimedRelatedToPersonId    String
+  branchLabel                 BranchLabel
+  status                      ProfileRequestStatus @default(PENDING)
+  possibleDuplicateOfPersonId String?
+  reviewedById                String?
+  reviewedAt                  DateTime?
+  rejectionReason             String?
+  createdAt                   DateTime             @default(now())
+
+  tree              FamilyTree @relation(fields: [treeId], references: [id])
+  requestedBy       User       @relation("ProfileRequestedBy", fields: [requestedById], references: [id])
+  claimedRelatedTo  Person     @relation("ClaimedRelatedTo", fields: [claimedRelatedToPersonId], references: [id])
+  possibleDuplicate Person?    @relation("PossibleDuplicate", fields: [possibleDuplicateOfPersonId], references: [id])
+  reviewedBy        User?      @relation("ProfileReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([treeId, status])
+}
+
+// ─── Cross-tree link ──────────────────────────────────────────────────────────
+
+model TreeLink {
+  id                     String         @id @default(cuid())
+  treeAId                String
+  treeAPersonId          String
+  treeBId                String
+  treeBPersonId          String
+  linkType               TreeLinkType   @default(MARRIAGE)
+  status                 TreeLinkStatus @default(PENDING)
+  requestedById          String
+  approvedByTreeAAdminId String?
+  approvedByTreeBAdminId String?
+  createdAt              DateTime       @default(now())
+
+  treeA       FamilyTree @relation("TreeLinkA", fields: [treeAId], references: [id])
+  treeB       FamilyTree @relation("TreeLinkB", fields: [treeBId], references: [id])
+  personA     Person     @relation("TreeLinkPersonA", fields: [treeAPersonId], references: [id])
+  personB     Person     @relation("TreeLinkPersonB", fields: [treeBPersonId], references: [id])
+  requestedBy User       @relation("TreeLinkRequestedBy", fields: [requestedById], references: [id])
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+model Event {
+  id          String     @id @default(cuid())
+  treeId      String
+  createdById String
+  type        EventType
+  title       String
+  description String?
+  date        DateTime
+  visibility  Visibility @default(FAMILY)
+  branchLabel String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tree      FamilyTree  @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  createdBy User        @relation(fields: [createdById], references: [id])
+  media     Media[]
+  comments  Comment[]
+  taggedPersons EventPerson[]
+
+  @@index([treeId, date])
+}
+
+model EventPerson {
+  eventId  String
+  personId String
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, personId])
+}
+
+// ─── Media ────────────────────────────────────────────────────────────────────
+
+model Media {
+  id             String      @id @default(cuid())
+  eventId        String?
+  storyId        String?
+  uploadedById   String
+  r2Key          String
+  thumbnailR2Key String?
+  type           MediaType
+  sizeBytes      BigInt
+  status         MediaStatus @default(PENDING)
+  caption        String?
+  createdAt      DateTime    @default(now())
+
+  event      Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  story      Story? @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  uploadedBy User   @relation(fields: [uploadedById], references: [id])
+
+  @@index([eventId])
+  @@index([storyId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([eventId])
+}
+
+// Polymorphic — targetId is not a DB FK; enforced in application code.
+model Like {
+  id         String     @id @default(cuid())
+  userId     String
+  targetType LikeTarget
+  targetId   String
+  createdAt  DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+}
+
+// ─── Stories ─────────────────────────────────────────────────────────────────
+
+model Story {
+  id             String     @id @default(cuid())
+  treeId         String
+  createdById    String
+  r2Key          String
+  thumbnailR2Key String?
+  type           MediaType
+  caption        String?
+  createdAt      DateTime   @default(now())
+  expiresAt      DateTime
+  visibility     Visibility @default(FAMILY)
+  branchLabel    String?
+
+  tree      FamilyTree  @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  createdBy User        @relation(fields: [createdById], references: [id])
+  media     Media[]
+  views     StoryView[]
+
+  @@index([treeId, expiresAt])
+}
+
+model StoryView {
+  storyId  String
+  userId   String
+  viewedAt DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@id([storyId, userId])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id                      String           @id @default(cuid())
+  treeId                  String
+  userId                  String
+  type                    NotificationType
+  relatedEventId          String?
+  relatedProfileRequestId String?
+  relatedTreeLinkId       String?
+  sentAt                  DateTime         @default(now())
+  openedAt                DateTime?
+
+  tree FamilyTree @relation(fields: [treeId], references: [id])
+  user User       @relation(fields: [userId], references: [id])
+
+  @@index([userId, sentAt])
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum RelationType {
+  PARENT
+  SPOUSE
+  SIBLING
+}
+
+enum MemberRole {
+  SUPER_ADMIN
+  ADMIN
+  MEMBER
+}
+
+enum BranchLabel {
+  DADIYAL
+  NANIYAL
+  IMMEDIATE
+  EXTENDED
+}
+
+enum ProfileRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EventType {
+  BIRTHDAY
+  ANNIVERSARY
+  WEDDING
+  TRIP
+  GATHERING
+  ACHIEVEMENT
+  OTHER
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+}
+
+enum Visibility {
+  FAMILY
+  BRANCH
+}
+
+enum LikeTarget {
+  EVENT
+  STORY
+}
+
+enum TreeLinkType {
+  MARRIAGE
+}
+
+enum TreeLinkStatus {
+  PENDING
+  APPROVED
+}
+
+enum NotificationType {
+  MEMORY_RECALL
+  PROFILE_REQUEST
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  TREE_LINK_REQUEST
+}

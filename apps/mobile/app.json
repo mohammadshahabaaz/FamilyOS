@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "FamilyOS",
+    "slug": "familyos",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.familyos.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.familyos.app"
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiUrl": "http://localhost:3000"
+    }
+  }
+}

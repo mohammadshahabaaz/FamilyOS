@@ -1,0 +1,41 @@
+{
+  "enabledPlugins": {
+    "cto-team@local": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(npx tsx *)",
+      "Bash(npx vitest *)",
+      "Bash(npx expo *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(curl http://localhost:*)",
+      "Bash(pkill -f tsx*)",
+      "Bash(pkill -f *)",
+      "Bash(lsof *)",
+      "Bash(cat /tmp/*.log*)",
+      "Bash(cat /tmp/api.log)",
+      "Bash(python3 *)",
+      "Bash(jq *)",
+      "Bash(grep *)",
+      "Bash(find . *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // \"\"' | { read -r f; echo \"$f\" | grep -q 'schema\\.prisma' && printf '{\"systemMessage\":\"schema.prisma changed — run /db-reset or: cd apps/api && npx prisma db push\"}\\n' || true; }",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
