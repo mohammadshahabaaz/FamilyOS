@@ -21,8 +21,15 @@ export const updateMemberSchema = z.object({
   branchLabel: z.string().max(50).nullable().optional(),
 })
 
+export const invitePayloadSchema = z.object({
+  treeId: z.string().min(1),
+  role: z.enum(['ADMIN', 'MEMBER']),
+  createdBy: z.string().min(1),
+})
+
 export type CreateFamilyInput = z.infer<typeof createFamilySchema>
 export type UpdateFamilyInput = z.infer<typeof updateFamilySchema>
 export type CreateInviteInput = z.infer<typeof createInviteSchema>
 export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>
+export type InvitePayload = z.infer<typeof invitePayloadSchema>

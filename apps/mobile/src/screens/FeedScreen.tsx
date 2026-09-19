@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native'
-import type { Tree, Person, FamilyEvent, Relative } from '../lib/types'
+import type { Tree, Person, FamilyEvent, Relative, OnThisDayEvent } from '../lib/types'
 import { getFamilyCircle, FAMILY_CIRCLE_LABELS } from '../lib/types'
 import type { FamilyCircle } from '../lib/types'
+import type { StoryItem } from '../lib/api'
 import StoryCircle from '../components/StoryCircle'
 import PostCard from '../components/PostCard'
 import type { Screen } from '../../App'
@@ -10,28 +11,35 @@ import { C } from '../lib/theme'
 
 type FilterTab = FamilyCircle | 'all'
 
-const TABS: FilterTab[] = ['all', 'close', 'dadiyal', 'naniyal', 'internal', 'extended']
+const TABS: FilterTab[] = ['all', 'close', 'paternal', 'maternal', 'internal', 'extended']
 
 interface Props {
   tree: Tree
   persons: Person[]
   events: FamilyEvent[]
+  stories: StoryItem[]
+  onThisDay: OnThisDayEvent[]
   myRelatives: Relative[]
   myPersonId?: string
+  myUserId?: string
   navigateTo: (s: Screen) => void
+  onOpenStory: (userId: string) => void
+  onCreateStory: () => void
   refreshing?: boolean
   onRefresh?: () => void
   onEditEvent?: (event: FamilyEvent) => void
   onDeleteEvent?: (eventId: string) => void
 }
 
-const SEEN_KEY = 'fo_seen_stories'
+const SEEN_KEY = 'fo_seen_story_groups'
 
 function loadSeen(): Set<string> {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SEEN_KEY) : null
     return new Set(raw ? JSON.parse(raw) : [])
-  } catch { return new Set() }
+  } catch {
+    return new Set()
+  }
 }
 
 function saveSeen(ids: Set<string>) {
@@ -42,9 +50,25 @@ function saveSeen(ids: Set<string>) {
   } catch {}
 }
 
-export default function FeedScreen({ tree, persons, events, myRelatives, myPersonId, navigateTo, refreshing = false, onRefresh, onEditEvent, onDeleteEvent }: Props) {
-  const [seenIds,    setSeenIds]    = useState<Set<string>>(loadSeen)
-  const [activeTab,  setActiveTab]  = useState<FilterTab>('all')
+export default function FeedScreen({
+  tree,
+  persons,
+  events,
+  stories,
+  onThisDay,
+  myRelatives,
+  myPersonId,
+  myUserId,
+  navigateTo,
+  onOpenStory,
+  onCreateStory,
+  refreshing = false,
+  onRefresh,
+  onEditEvent,
+  onDeleteEvent,
+}: Props) {
+  const [seenIds, setSeenIds] = useState<Set<string>>(loadSeen)
+  const [activeTab, setActiveTab] = useState<FilterTab>('all')
 
   // Build personId → circle map from my relatives list
   const circleMap = useMemo<Record<string, FamilyCircle>>(() => {
@@ -58,28 +82,51 @@ export default function FeedScreen({ tree, persons, events, myRelatives, myPerso
   // Filter events: match if any tagged person is in the active circle
   const filteredEvents = useMemo(() => {
     if (activeTab === 'all') return events
-    return events.filter(e =>
-      e.taggedPersons.some(p => circleMap[p.id] === activeTab)
-    )
+    return events.filter((e) => e.taggedPersons.some((p) => circleMap[p.id] === activeTab))
   }, [events, activeTab, circleMap])
 
-  // For stories row: show all persons on 'all', otherwise filter by circle
-  const filteredPersons = useMemo(() => {
-    if (activeTab === 'all') return persons
-    return persons.filter(p => circleMap[p.id] === activeTab)
-  }, [persons, activeTab, circleMap])
+  // Same circle filter applied to "on this day" so it stays consistent with the tabs
+  const filteredOnThisDay = useMemo(() => {
+    if (activeTab === 'all') return onThisDay
+    return onThisDay.filter((e) => e.taggedPersons.some((p) => circleMap[p.id] === activeTab))
+  }, [onThisDay, activeTab, circleMap])
 
-  function markSeen(personId: string) {
-    setSeenIds(prev => {
-      const next = new Set(prev).add(personId)
+  // Group active stories by author, split into "mine" vs. everyone else's, and
+  // apply the same circle filter the tabs already drive for events.
+  const { myGroup, otherGroups } = useMemo(() => {
+    const byUser = new Map<string, StoryItem[]>()
+    for (const s of stories) {
+      const arr = byUser.get(s.createdBy.id) ?? []
+      arr.push(s)
+      byUser.set(s.createdBy.id, arr)
+    }
+    const mine = myUserId ? (byUser.get(myUserId) ?? []) : []
+    const others: { userId: string; latest: StoryItem; count: number }[] = []
+    for (const [userId, group] of byUser) {
+      if (userId === myUserId) continue
+      const personId = persons.find((p) => p.linkedUserId === userId)?.id
+      if (activeTab !== 'all' && (!personId || circleMap[personId] !== activeTab)) continue
+      const latest = group.reduce((a, b) => (new Date(a.createdAt) > new Date(b.createdAt) ? a : b))
+      others.push({ userId, latest, count: group.length })
+    }
+    others.sort(
+      (a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime(),
+    )
+    return { myGroup: mine, otherGroups: others }
+  }, [stories, myUserId, persons, circleMap, activeTab])
+
+  function markSeen(userId: string) {
+    setSeenIds((prev) => {
+      const next = new Set(prev).add(userId)
       saveSeen(next)
       return next
     })
   }
 
+  const myPerson = persons.find((p) => p.id === myPersonId)
+
   return (
     <View style={styles.root}>
-
       {/* Stories row */}
       <View style={styles.storiesWrap}>
         <ScrollView
@@ -87,17 +134,34 @@ export default function FeedScreen({ tree, persons, events, myRelatives, myPerso
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.storiesContent}
         >
-          {filteredPersons.map(person => (
+          {myUserId && (
             <StoryCircle
-              key={person.id}
-              person={person}
-              seen={seenIds.has(person.id)}
-              navigateTo={(id) => { markSeen(id); navigateTo({ name: 'person', personId: id }) }}
+              name={myGroup.length > 0 ? 'Your Story' : 'Add Story'}
+              avatarUrl={myPerson?.profilePicUrl}
+              isAdd={myGroup.length === 0}
+              onPress={() => (myGroup.length > 0 ? onOpenStory(myUserId) : onCreateStory())}
             />
-          ))}
-          {filteredPersons.length === 0 && activeTab !== 'all' && (
+          )}
+          {otherGroups.map((g) => {
+            const p = persons.find((pp) => pp.linkedUserId === g.userId)
+            return (
+              <StoryCircle
+                key={g.userId}
+                name={p?.firstName ?? g.latest.createdBy.username}
+                avatarUrl={p?.profilePicUrl ?? g.latest.createdBy.profilePicUrl}
+                seen={seenIds.has(g.userId)}
+                onPress={() => {
+                  markSeen(g.userId)
+                  onOpenStory(g.userId)
+                }}
+              />
+            )
+          })}
+          {otherGroups.length === 0 && myGroup.length === 0 && activeTab !== 'all' && (
             <View style={styles.noStories}>
-              <Text style={styles.noStoriesText}>No {FAMILY_CIRCLE_LABELS[activeTab]} members yet</Text>
+              <Text style={styles.noStoriesText}>
+                No {FAMILY_CIRCLE_LABELS[activeTab]} stories yet
+              </Text>
             </View>
           )}
         </ScrollView>
@@ -105,8 +169,12 @@ export default function FeedScreen({ tree, persons, events, myRelatives, myPerso
 
       {/* Family circle filter tabs */}
       <View style={styles.tabsWrap}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
-          {TABS.map(tab => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsContent}
+        >
+          {TABS.map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -125,9 +193,33 @@ export default function FeedScreen({ tree, persons, events, myRelatives, myPerso
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
+        refreshControl={
+          onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
+        }
       >
-        {filteredEvents.map(event => (
+        {filteredOnThisDay.length > 0 && (
+          <View style={styles.onThisDayWrap}>
+            <Text style={styles.onThisDaySectionLabel}>✨ On This Day</Text>
+            {filteredOnThisDay.map((event) => (
+              <View key={event.id} style={styles.onThisDayCard}>
+                <Text style={styles.onThisDayCaption}>
+                  {event.yearsAgo} year{event.yearsAgo === 1 ? '' : 's'} ago today
+                </Text>
+                <PostCard
+                  event={event}
+                  treeId={tree.id}
+                  navigateTo={navigateTo}
+                  onEdit={onEditEvent}
+                  onDelete={onDeleteEvent}
+                  myRelatives={myRelatives}
+                  myPersonId={myPersonId}
+                />
+              </View>
+            ))}
+          </View>
+        )}
+
+        {filteredEvents.map((event) => (
           <PostCard
             key={event.id}
             event={event}
@@ -135,6 +227,8 @@ export default function FeedScreen({ tree, persons, events, myRelatives, myPerso
             navigateTo={navigateTo}
             onEdit={onEditEvent}
             onDelete={onDeleteEvent}
+            myRelatives={myRelatives}
+            myPersonId={myPersonId}
           />
         ))}
 
@@ -142,13 +236,14 @@ export default function FeedScreen({ tree, persons, events, myRelatives, myPerso
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>{activeTab === 'all' ? '📸' : '👨‍👩‍👦'}</Text>
             <Text style={styles.emptyText}>
-              {activeTab === 'all' ? 'No memories yet' : `No ${FAMILY_CIRCLE_LABELS[activeTab]} memories`}
+              {activeTab === 'all'
+                ? 'No memories yet'
+                : `No ${FAMILY_CIRCLE_LABELS[activeTab]} memories`}
             </Text>
             <Text style={styles.emptySub}>
               {activeTab === 'all'
                 ? 'Tap + to add your first family memory'
-                : 'Tag family members in events to see them here'
-              }
+                : 'Tag family members in events to see them here'}
             </Text>
             {activeTab === 'all' && (
               <TouchableOpacity
@@ -188,23 +283,63 @@ const styles = StyleSheet.create({
   },
   tabsContent: { paddingHorizontal: 10, paddingVertical: 8, gap: 6 },
   tab: {
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1.5, borderColor: C.border,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: C.border,
     backgroundColor: C.bg,
   },
   tabActive: {
-    backgroundColor: C.accent, borderColor: C.accent,
+    backgroundColor: C.accent,
+    borderColor: C.accent,
   },
   tabText: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
   tabTextActive: { color: '#FFFFFF' },
+
+  onThisDayWrap: {
+    borderBottomWidth: 8,
+    borderBottomColor: C.bg,
+  },
+  onThisDaySectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    // @ts-ignore
+    textTransform: 'uppercase',
+    color: C.accent,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  onThisDayCard: {
+    borderWidth: 1.5,
+    borderColor: C.accentSoft,
+    borderRadius: 12,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  onThisDayCaption: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: C.accent,
+    fontWeight: '600',
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
 
   empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 10 },
   emptyIcon: { fontSize: 44 },
   emptyText: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
   emptySub: { fontSize: 13, color: C.textSecondary, textAlign: 'center', paddingHorizontal: 32 },
   emptyBtn: {
-    marginTop: 8, backgroundColor: C.accent, borderRadius: 8,
-    paddingHorizontal: 20, paddingVertical: 10,
+    marginTop: 8,
+    backgroundColor: C.accent,
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   emptyBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   bottomPad: { height: 20 },

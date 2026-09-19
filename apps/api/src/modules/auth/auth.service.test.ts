@@ -5,7 +5,7 @@ vi.mock('../../lib/db.js', () => ({
   db: {
     user: {
       findUnique: vi.fn(),
-      create:     vi.fn(),
+      create: vi.fn(),
     },
   },
 }))
@@ -20,7 +20,7 @@ vi.mock('../../lib/redis.js', () => ({
 
 vi.mock('argon2', () => ({
   default: {
-    hash:   vi.fn().mockResolvedValue('$argon2id$hashed'),
+    hash: vi.fn().mockResolvedValue('$argon2id$hashed'),
     verify: vi.fn(),
   },
 }))
@@ -31,7 +31,7 @@ import { redis } from '../../lib/redis.js'
 import { buildAuthService } from './auth.service.js'
 
 const mockJwt = {
-  sign:   vi.fn().mockReturnValue('mock.jwt.token'),
+  sign: vi.fn().mockReturnValue('mock.jwt.token'),
   verify: vi.fn(),
 }
 
@@ -42,13 +42,13 @@ const mockFastify = {
 const authService = buildAuthService(mockFastify)
 
 const baseUser = {
-  id:           'user-1',
+  id: 'user-1',
   mobileNumber: '+919876543210',
   passwordHash: '$argon2id$hashed',
-  username:     'tariq',
+  username: 'tariq',
   uniqueUserId: 'tariq',
   profilePicUrl: null,
-  createdAt:    new Date(),
+  createdAt: new Date(),
 }
 
 beforeEach(() => {
@@ -57,15 +57,15 @@ beforeEach(() => {
 
 describe('authService.signup', () => {
   it('creates a user and returns tokens', async () => {
-    vi.mocked(db.user.findUnique).mockResolvedValue(null)  // mobile not taken
+    vi.mocked(db.user.findUnique).mockResolvedValue(null) // mobile not taken
     vi.mocked(db.user.create).mockResolvedValue(baseUser as never)
 
     const result = await authService.signup({
       mobileNumber: '+919876543210',
-      password:     'password123',
-      username:     'tariq',
-      firstName:    'Tariq',
-      lastName:     'Khan',
+      password: 'password123',
+      username: 'tariq',
+      firstName: 'Tariq',
+      lastName: 'Khan',
     })
 
     expect(result.user.id).toBe('user-1')
@@ -79,13 +79,18 @@ describe('authService.signup', () => {
   it('throws 409 if mobile number is already registered', async () => {
     vi.mocked(db.user.findUnique).mockResolvedValue(baseUser as never)
 
-    await expect(authService.signup({
-      mobileNumber: '+919876543210',
-      password:     'password123',
-      username:     'tariq',
-      firstName:    'Tariq',
-      lastName:     'Khan',
-    })).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('already registered') })
+    await expect(
+      authService.signup({
+        mobileNumber: '+919876543210',
+        password: 'password123',
+        username: 'tariq',
+        firstName: 'Tariq',
+        lastName: 'Khan',
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: expect.stringContaining('already registered'),
+    })
   })
 
   it('throws 409 if username is already taken', async () => {
@@ -94,13 +99,15 @@ describe('authService.signup', () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(baseUser as never)
 
-    await expect(authService.signup({
-      mobileNumber: '+919123456789',
-      password:     'password123',
-      username:     'tariq',
-      firstName:    'Another',
-      lastName:     'Person',
-    })).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('Username') })
+    await expect(
+      authService.signup({
+        mobileNumber: '+919123456789',
+        password: 'password123',
+        username: 'tariq',
+        firstName: 'Another',
+        lastName: 'Person',
+      }),
+    ).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('Username') })
   })
 })
 
@@ -111,7 +118,7 @@ describe('authService.login', () => {
 
     const result = await authService.login({
       mobileNumber: '+919876543210',
-      password:     'password123',
+      password: 'password123',
     })
 
     expect(result.user.id).toBe('user-1')
@@ -121,27 +128,34 @@ describe('authService.login', () => {
   it('throws 401 for unknown mobile number', async () => {
     vi.mocked(db.user.findUnique).mockResolvedValue(null)
 
-    await expect(authService.login({
-      mobileNumber: '+919000000000',
-      password:     'any',
-    })).rejects.toMatchObject({ statusCode: 401 })
+    await expect(
+      authService.login({
+        mobileNumber: '+919000000000',
+        password: 'any',
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 })
   })
 
   it('throws 401 for wrong password', async () => {
     vi.mocked(db.user.findUnique).mockResolvedValue(baseUser as never)
     vi.mocked(argon2.verify).mockResolvedValue(false)
 
-    await expect(authService.login({
-      mobileNumber: '+919876543210',
-      password:     'wrongpassword',
-    })).rejects.toMatchObject({ statusCode: 401 })
+    await expect(
+      authService.login({
+        mobileNumber: '+919876543210',
+        password: 'wrongpassword',
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 })
   })
 })
 
 describe('authService.refresh', () => {
   it('issues new tokens when refresh token is valid and in Redis', async () => {
     vi.mocked(mockJwt.verify).mockReturnValue({
-      sub: 'user-1', uniqueUserId: 'tariq', tokenId: 'tok-123', type: 'refresh',
+      sub: 'user-1',
+      uniqueUserId: 'tariq',
+      tokenId: 'tok-123',
+      type: 'refresh',
     })
     vi.mocked(redis.get).mockResolvedValue('1')
 
@@ -154,7 +168,10 @@ describe('authService.refresh', () => {
 
   it('throws 401 when refresh token is revoked (not in Redis)', async () => {
     vi.mocked(mockJwt.verify).mockReturnValue({
-      sub: 'user-1', uniqueUserId: 'tariq', tokenId: 'tok-123', type: 'refresh',
+      sub: 'user-1',
+      uniqueUserId: 'tariq',
+      tokenId: 'tok-123',
+      type: 'refresh',
     })
     vi.mocked(redis.get).mockResolvedValue(null)
 
@@ -163,14 +180,20 @@ describe('authService.refresh', () => {
 
   it('throws 401 when token is not a refresh token', async () => {
     vi.mocked(mockJwt.verify).mockReturnValue({
-      sub: 'user-1', uniqueUserId: 'tariq', type: 'access',
+      sub: 'user-1',
+      uniqueUserId: 'tariq',
+      type: 'access',
     })
 
-    await expect(authService.refresh('access.token.used.as.refresh')).rejects.toMatchObject({ statusCode: 401 })
+    await expect(authService.refresh('access.token.used.as.refresh')).rejects.toMatchObject({
+      statusCode: 401,
+    })
   })
 
   it('throws 401 when token signature is invalid', async () => {
-    vi.mocked(mockJwt.verify).mockImplementation(() => { throw new Error('invalid signature') })
+    vi.mocked(mockJwt.verify).mockImplementation(() => {
+      throw new Error('invalid signature')
+    })
 
     await expect(authService.refresh('tampered.token')).rejects.toMatchObject({ statusCode: 401 })
   })
@@ -179,7 +202,9 @@ describe('authService.refresh', () => {
 describe('authService.logout', () => {
   it('deletes refresh token from Redis', async () => {
     vi.mocked(mockJwt.verify).mockReturnValue({
-      sub: 'user-1', tokenId: 'tok-123', type: 'refresh',
+      sub: 'user-1',
+      tokenId: 'tok-123',
+      type: 'refresh',
     })
 
     await authService.logout('valid.refresh.token')
@@ -187,7 +212,9 @@ describe('authService.logout', () => {
   })
 
   it('does not throw when token is already invalid', async () => {
-    vi.mocked(mockJwt.verify).mockImplementation(() => { throw new Error('expired') })
+    vi.mocked(mockJwt.verify).mockImplementation(() => {
+      throw new Error('expired')
+    })
 
     await expect(authService.logout('expired.token')).resolves.not.toThrow()
   })

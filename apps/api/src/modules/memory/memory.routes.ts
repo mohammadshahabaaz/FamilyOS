@@ -3,8 +3,12 @@ import { z } from 'zod'
 import { memoryService } from './memory.service.js'
 
 const ALLOWED_MIME = new Set([
-  'image/jpeg', 'image/png', 'image/webp', 'image/heic',
-  'video/mp4', 'video/quicktime',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'video/mp4',
+  'video/quicktime',
 ])
 
 const memoryRoutes: FastifyPluginAsync = async (fastify) => {
@@ -17,10 +21,16 @@ const memoryRoutes: FastifyPluginAsync = async (fastify) => {
     '/media/upload-url',
     { ...guard },
     async (req, reply) => {
-      const body = z.object({
-        mimeType:  z.string().refine((m) => ALLOWED_MIME.has(m), 'Unsupported file type'),
-        sizeBytes: z.number().int().positive().max(200 * 1024 * 1024),  // max 200 MB
-      }).parse(req.body)
+      const body = z
+        .object({
+          mimeType: z.string().refine((m) => ALLOWED_MIME.has(m), 'Unsupported file type'),
+          sizeBytes: z
+            .number()
+            .int()
+            .positive()
+            .max(200 * 1024 * 1024), // max 200 MB
+        })
+        .parse(req.body)
 
       const result = await memoryService.requestUploadUrl(
         req.user.sub,
@@ -37,12 +47,15 @@ const memoryRoutes: FastifyPluginAsync = async (fastify) => {
     '/media/confirm',
     { ...guard },
     async (req, reply) => {
-      const body = z.object({
-        r2Key:     z.string().min(1),
-        type:      z.enum(['PHOTO', 'VIDEO']),
-        sizeBytes: z.number().int().positive(),
-        caption:   z.string().max(500).optional(),
-      }).parse(req.body)
+      const body = z
+        .object({
+          r2Key: z.string().min(1),
+          type: z.enum(['PHOTO', 'VIDEO']),
+          sizeBytes: z.number().int().positive(),
+          caption: z.string().max(500).optional(),
+          thumbnailR2Key: z.string().min(1).optional(),
+        })
+        .parse(req.body)
 
       const media = await memoryService.confirmUpload(
         req.user.sub,
@@ -90,17 +103,14 @@ const memoryRoutes: FastifyPluginAsync = async (fastify) => {
     '/comments',
     { ...guard },
     async (req) => {
-      const query = z.object({
-        cursor: z.string().optional(),
-        limit:  z.coerce.number().int().min(1).max(50).default(20),
-      }).parse(req.query)
+      const query = z
+        .object({
+          cursor: z.string().optional(),
+          limit: z.coerce.number().int().min(1).max(50).default(20),
+        })
+        .parse(req.query)
 
-      return memoryService.listComments(
-        req.user.sub,
-        req.params.treeId,
-        req.params.eventId,
-        query,
-      )
+      return memoryService.listComments(req.user.sub, req.params.treeId, req.params.eventId, query)
     },
   )
 

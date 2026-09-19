@@ -18,43 +18,43 @@ import type { GraphEdge } from './relationship.engine.js'
 function makeFamily() {
   const edges: GraphEdge[] = [
     // GF is parent of DAD
-    { fromPersonId: 'gf',    toPersonId: 'dad',   relationType: 'PARENT' },
+    { fromPersonId: 'gf', toPersonId: 'dad', relationType: 'PARENT' },
     // GM is parent of DAD
-    { fromPersonId: 'gm',    toPersonId: 'dad',   relationType: 'PARENT' },
+    { fromPersonId: 'gm', toPersonId: 'dad', relationType: 'PARENT' },
     // GF + GM are spouses
-    { fromPersonId: 'gf',    toPersonId: 'gm',    relationType: 'SPOUSE' },
+    { fromPersonId: 'gf', toPersonId: 'gm', relationType: 'SPOUSE' },
     // DAD is parent of ME and SIB
-    { fromPersonId: 'dad',   toPersonId: 'me',    relationType: 'PARENT' },
-    { fromPersonId: 'dad',   toPersonId: 'sib',   relationType: 'PARENT' },
+    { fromPersonId: 'dad', toPersonId: 'me', relationType: 'PARENT' },
+    { fromPersonId: 'dad', toPersonId: 'sib', relationType: 'PARENT' },
     // MOM is parent of ME and SIB
-    { fromPersonId: 'mom',   toPersonId: 'me',    relationType: 'PARENT' },
-    { fromPersonId: 'mom',   toPersonId: 'sib',   relationType: 'PARENT' },
+    { fromPersonId: 'mom', toPersonId: 'me', relationType: 'PARENT' },
+    { fromPersonId: 'mom', toPersonId: 'sib', relationType: 'PARENT' },
     // DAD + MOM are spouses
-    { fromPersonId: 'dad',   toPersonId: 'mom',   relationType: 'SPOUSE' },
+    { fromPersonId: 'dad', toPersonId: 'mom', relationType: 'SPOUSE' },
     // ME and SIB are siblings
-    { fromPersonId: 'me',    toPersonId: 'sib',   relationType: 'SIBLING' },
+    { fromPersonId: 'me', toPersonId: 'sib', relationType: 'SIBLING' },
     // GF is parent of UNCLE
-    { fromPersonId: 'gf',    toPersonId: 'uncle', relationType: 'PARENT' },
-    { fromPersonId: 'gm',    toPersonId: 'uncle', relationType: 'PARENT' },
+    { fromPersonId: 'gf', toPersonId: 'uncle', relationType: 'PARENT' },
+    { fromPersonId: 'gm', toPersonId: 'uncle', relationType: 'PARENT' },
     // UNCLE has a spouse AUNT
-    { fromPersonId: 'uncle', toPersonId: 'aunt',  relationType: 'SPOUSE' },
+    { fromPersonId: 'uncle', toPersonId: 'aunt', relationType: 'SPOUSE' },
     // UNCLE and AUNT have a child COUSIN
     { fromPersonId: 'uncle', toPersonId: 'cousin', relationType: 'PARENT' },
-    { fromPersonId: 'aunt',  toPersonId: 'cousin', relationType: 'PARENT' },
+    { fromPersonId: 'aunt', toPersonId: 'cousin', relationType: 'PARENT' },
     // SIB has a child SON
-    { fromPersonId: 'sib',   toPersonId: 'son',   relationType: 'PARENT' },
+    { fromPersonId: 'sib', toPersonId: 'son', relationType: 'PARENT' },
   ]
 
   const genders = new Map<string, 'MALE' | 'FEMALE' | 'OTHER'>([
-    ['gf',     'MALE'],
-    ['gm',     'FEMALE'],
-    ['dad',    'MALE'],
-    ['mom',    'FEMALE'],
-    ['me',     'MALE'],
-    ['sib',    'FEMALE'],
-    ['son',    'MALE'],
-    ['uncle',  'MALE'],
-    ['aunt',   'FEMALE'],
+    ['gf', 'MALE'],
+    ['gm', 'FEMALE'],
+    ['dad', 'MALE'],
+    ['mom', 'FEMALE'],
+    ['me', 'MALE'],
+    ['sib', 'FEMALE'],
+    ['son', 'MALE'],
+    ['uncle', 'MALE'],
+    ['aunt', 'FEMALE'],
     ['cousin', 'MALE'],
   ])
 
@@ -190,9 +190,12 @@ describe('computeAllRelationships', () => {
     expect(map.get('gf')?.label).toBe('Grandfather')
     expect(map.get('gm')?.label).toBe('Grandmother')
     expect(map.get('sib')?.label).toBe('Sister')
-    expect(map.get('uncle')?.label).toBe('Uncle')
-    expect(map.get('aunt')?.label).toBe('Aunt')
-    expect(map.get('cousin')?.label).toBe('First Cousin')
+    // uncle/aunt/cousin are only reachable through gf/gm (dad's parents) in this
+    // fixture — there's no maternal side — so computeAllRelationships (which always
+    // has a full personGenders map, unlike the rel() helper below) now prefixes them.
+    expect(map.get('uncle')?.label).toBe('Paternal Uncle')
+    expect(map.get('aunt')?.label).toBe('Paternal Aunt')
+    expect(map.get('cousin')?.label).toBe('Paternal First Cousin')
     expect(map.get('son')?.label).toBe('Nephew')
   })
 
@@ -239,5 +242,101 @@ describe('symmetry', () => {
     const a = rel('me', 'cousin')
     const b = rel('cousin', 'me')
     expect(a.label).toBe(b.label)
+  })
+})
+
+// ─── Paternal/Maternal side family — separate grandparents on each side ──────
+//
+//   dadGF ── dadGM         momGF ── momGM
+//     │  ╲                   │  ╲
+//    dad  dadBro            mom  momBro
+//      ╲   (paternal          ╱   (maternal
+//       ╲   uncle)           ╱     uncle)
+//        ╲                  ╱
+//         me ─── sib  (dad + mom's children)
+//
+// ────────────────────────────────────────────────────────────────────────────
+
+function makeSidedFamily() {
+  const edges: GraphEdge[] = [
+    { fromPersonId: 'dadGF', toPersonId: 'dad', relationType: 'PARENT' },
+    { fromPersonId: 'dadGM', toPersonId: 'dad', relationType: 'PARENT' },
+    { fromPersonId: 'dadGF', toPersonId: 'dadGM', relationType: 'SPOUSE' },
+    { fromPersonId: 'dadGF', toPersonId: 'dadBro', relationType: 'PARENT' },
+    { fromPersonId: 'dadGM', toPersonId: 'dadBro', relationType: 'PARENT' },
+
+    { fromPersonId: 'momGF', toPersonId: 'mom', relationType: 'PARENT' },
+    { fromPersonId: 'momGM', toPersonId: 'mom', relationType: 'PARENT' },
+    { fromPersonId: 'momGF', toPersonId: 'momGM', relationType: 'SPOUSE' },
+    { fromPersonId: 'momGF', toPersonId: 'momBro', relationType: 'PARENT' },
+    { fromPersonId: 'momGM', toPersonId: 'momBro', relationType: 'PARENT' },
+
+    { fromPersonId: 'dad', toPersonId: 'me', relationType: 'PARENT' },
+    { fromPersonId: 'mom', toPersonId: 'me', relationType: 'PARENT' },
+    { fromPersonId: 'dad', toPersonId: 'sib', relationType: 'PARENT' },
+    { fromPersonId: 'mom', toPersonId: 'sib', relationType: 'PARENT' },
+    { fromPersonId: 'dad', toPersonId: 'mom', relationType: 'SPOUSE' },
+  ]
+
+  const genders = new Map<string, 'MALE' | 'FEMALE' | 'OTHER'>([
+    ['dadGF', 'MALE'],
+    ['dadGM', 'FEMALE'],
+    ['dad', 'MALE'],
+    ['dadBro', 'MALE'],
+    ['momGF', 'MALE'],
+    ['momGM', 'FEMALE'],
+    ['mom', 'FEMALE'],
+    ['momBro', 'MALE'],
+    ['me', 'MALE'],
+    ['sib', 'FEMALE'],
+  ])
+
+  return { edges, genders }
+}
+
+describe('pathToLabel — paternal/maternal prefix (P2-D)', () => {
+  it("father's brother → Paternal Uncle", () => {
+    const { edges, genders } = makeSidedFamily()
+    const map = computeAllRelationships('me', ['dadBro'], edges, genders)
+    expect(map.get('dadBro')?.label).toBe('Paternal Uncle')
+  })
+
+  it("mother's brother → Maternal Uncle", () => {
+    const { edges, genders } = makeSidedFamily()
+    const map = computeAllRelationships('me', ['momBro'], edges, genders)
+    expect(map.get('momBro')?.label).toBe('Maternal Uncle')
+  })
+
+  it('sibling → Brother/Sister, no prefix', () => {
+    const { edges, genders } = makeSidedFamily()
+    const map = computeAllRelationships('me', ['sib'], edges, genders)
+    expect(map.get('sib')?.label).toBe('Sister')
+  })
+
+  it('parent → Father/Mother, no prefix', () => {
+    const { edges, genders } = makeSidedFamily()
+    const map = computeAllRelationships('me', ['dad', 'mom'], edges, genders)
+    expect(map.get('dad')?.label).toBe('Father')
+    expect(map.get('mom')?.label).toBe('Mother')
+  })
+
+  it('falls back to no prefix when the via-node gender is unknown', () => {
+    const { edges } = makeSidedFamily()
+    // dadBro's own gender is known (drives Uncle/Aunt); dad's (the via-node) is not.
+    const partialGenders = new Map<string, 'MALE' | 'FEMALE' | 'OTHER'>([['dadBro', 'MALE']])
+    const map = computeAllRelationships('me', ['dadBro'], edges, partialGenders)
+    expect(map.get('dadBro')?.label).toBe('Uncle')
+  })
+
+  it('computeRelationship also applies the prefix when personGenders is passed', () => {
+    const { edges, genders } = makeSidedFamily()
+    const result = computeRelationship('me', 'momBro', edges, 'MALE', genders)
+    expect(result.label).toBe('Maternal Uncle')
+  })
+
+  it('computeRelationship omits the prefix when personGenders is not passed', () => {
+    const { edges } = makeSidedFamily()
+    const result = computeRelationship('me', 'momBro', edges, 'MALE')
+    expect(result.label).toBe('Uncle')
   })
 })

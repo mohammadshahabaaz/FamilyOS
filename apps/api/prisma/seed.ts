@@ -63,13 +63,13 @@ async function main() {
 
   // Gen 0 — great-grandparents (deceased)
   const bilal = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
-    firstName: 'Bilal', lastName: 'Khan', gender: 'MALE', dateOfBirth: new Date('1910-04-01'), isDeceased: true, profilePicUrl: avatar(2) }})
+    firstName: 'Bilal', lastName: 'Khan', gender: 'MALE', dateOfBirth: new Date('1910-04-01'), dateOfDeath: new Date('1985-11-20'), isDeceased: true, profilePicUrl: avatar(2) }})
   const zubeda = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
-    firstName: 'Zubeda', lastName: 'Khan', gender: 'FEMALE', dateOfBirth: new Date('1916-09-12'), isDeceased: true, profilePicUrl: avatar(8) }})
+    firstName: 'Zubeda', lastName: 'Khan', gender: 'FEMALE', dateOfBirth: new Date('1916-09-12'), dateOfDeath: new Date('1998-02-03'), isDeceased: true, profilePicUrl: avatar(8) }})
 
   // Gen 1
   const hasan = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
-    firstName: 'Hasan', lastName: 'Khan', gender: 'MALE', dateOfBirth: new Date('1940-03-15'), isDeceased: true, profilePicUrl: avatar(3) }})
+    firstName: 'Hasan', lastName: 'Khan', gender: 'MALE', dateOfBirth: new Date('1940-03-15'), dateOfDeath: new Date('2015-08-09'), isDeceased: true, profilePicUrl: avatar(3) }})
   const fatima = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
     firstName: 'Fatima', lastName: 'Khan', gender: 'FEMALE', dateOfBirth: new Date('1945-08-22'), profilePicUrl: avatar(20) }})
 
@@ -88,6 +88,17 @@ async function main() {
     firstName: 'Rukhsana', lastName: 'Khan', gender: 'FEMALE', dateOfBirth: new Date('1982-04-22'), profilePicUrl: avatar(32) }})
   const samP   = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
     firstName: 'Samreen', lastName: 'Khan', gender: 'FEMALE', dateOfBirth: new Date('1983-07-10'), profilePicUrl: avatar(35) }})
+
+  // Rukhsana's own side (maternal grandparents + uncle for Omar's kids) — every other
+  // Gen 2 spouse (Nadia, Sana) is a dead end with no ancestry, so nobody in this tree
+  // could ever get a "Maternal" prefix. This branch exists so Mother's Side filtering has
+  // something real to show for Aisha/Ali/Umarj.
+  const rukhGF = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
+    firstName: 'Yaqub', lastName: 'Siddiqui', gender: 'MALE', dateOfBirth: new Date('1948-02-11'), dateOfDeath: new Date('2020-06-17'), isDeceased: true, profilePicUrl: avatar(4) }})
+  const rukhGM = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
+    firstName: 'Shaista', lastName: 'Siddiqui', gender: 'FEMALE', dateOfBirth: new Date('1952-10-19'), profilePicUrl: avatar(21) }})
+  const rukhBro = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id,
+    firstName: 'Naveed', lastName: 'Siddiqui', gender: 'MALE', dateOfBirth: new Date('1980-01-25'), profilePicUrl: avatar(63) }})
 
   // Gen 3
   const zaidP  = await prisma.person.create({ data: { familyTreeId: KT, createdById: tariqU.id, linkedUserId: zaidU.id,
@@ -126,6 +137,11 @@ async function main() {
     { from: tariqP.id, to: nadiaP.id, type: 'SPOUSE' },
     { from: imranP.id, to: sanaP.id,  type: 'SPOUSE' },
     { from: omarP.id,  to: rukhP.id,  type: 'SPOUSE' },
+    // Rukhsana's own parents + brother — the maternal branch for Aisha/Ali/Umarj
+    { from: rukhGF.id, to: rukhP.id,   type: 'PARENT' }, { from: rukhGM.id, to: rukhP.id,   type: 'PARENT' },
+    { from: rukhGF.id, to: rukhGM.id,  type: 'SPOUSE' },
+    { from: rukhGF.id, to: rukhBro.id, type: 'PARENT' }, { from: rukhGM.id, to: rukhBro.id, type: 'PARENT' },
+    { from: rukhP.id,  to: rukhBro.id, type: 'SIBLING' },
     // Gen 2 siblings
     { from: tariqP.id, to: imranP.id, type: 'SIBLING' },
     { from: tariqP.id, to: omarP.id,  type: 'SIBLING' },
@@ -428,7 +444,7 @@ async function main() {
   const ST = sharmaTree.id
 
   const raj    = await prisma.person.create({ data: { familyTreeId: ST, createdById: aryanU.id,
-    firstName: 'Raj', lastName: 'Sharma', gender: 'MALE', dateOfBirth: new Date('1948-11-01'), isDeceased: true, profilePicUrl: avatar(7) }})
+    firstName: 'Raj', lastName: 'Sharma', gender: 'MALE', dateOfBirth: new Date('1948-11-01'), dateOfDeath: new Date('2019-04-22'), isDeceased: true, profilePicUrl: avatar(7) }})
   const meena  = await prisma.person.create({ data: { familyTreeId: ST, createdById: aryanU.id,
     firstName: 'Meena', lastName: 'Sharma', gender: 'FEMALE', dateOfBirth: new Date('1952-05-12'), profilePicUrl: avatar(23) }})
   const aryanP = await prisma.person.create({ data: { familyTreeId: ST, createdById: aryanU.id, linkedUserId: aryanU.id,

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
-import { api, authApi, familyApi, personApi, eventApi } from './src/lib/api'
+import { api, authApi, familyApi, personApi, eventApi, notificationApi, storyApi } from './src/lib/api'
+import type { StoryItem } from './src/lib/api'
 import { tokenStore, logout } from './src/lib/auth'
 import type { AuthUser } from './src/lib/auth'
-import type { Tree, Person, FamilyEvent, Relative } from './src/lib/types'
+import type { Tree, Person, FamilyEvent, Relative, OnThisDayEvent } from './src/lib/types'
 import { C, initTheme, injectGlobalStyles } from './src/lib/theme'
+import { registerPushToken } from './src/lib/push'
 
 import TopBar                from './src/components/TopBar'
 import BottomTabs            from './src/components/BottomTabs'
@@ -13,6 +15,7 @@ import FeedScreen            from './src/screens/FeedScreen'
 import MembersScreen         from './src/screens/MembersScreen'
 import EventsScreen          from './src/screens/EventsScreen'
 import PersonScreen          from './src/screens/PersonScreen'
+import InMemoriamScreen      from './src/screens/InMemoriamScreen'
 import ProfileScreen         from './src/screens/ProfileScreen'
 import SettingsScreen        from './src/screens/SettingsScreen'
 import NotificationsScreen   from './src/screens/NotificationsScreen'
@@ -21,11 +24,14 @@ import SignupScreen          from './src/screens/SignupScreen'
 import CreateEventScreen     from './src/screens/CreateEventScreen'
 import OnboardingScreen      from './src/screens/OnboardingScreen'
 import AddPersonScreen       from './src/screens/AddPersonScreen'
+import CreateStoryScreen     from './src/screens/CreateStoryScreen'
+import StoryViewerScreen     from './src/screens/StoryViewerScreen'
+import RequestProfileScreen  from './src/screens/RequestProfileScreen'
 
 export type Screen =
   | { name: 'feed' }
   | { name: 'members' }
-  | { name: 'events' }
+  | { name: 'events'; openEventId?: string }
   | { name: 'person'; personId: string; from?: 'feed' | 'members' | 'events' }
   | { name: 'createEvent' }
   | { name: 'editEvent'; eventId: string }
@@ -33,6 +39,9 @@ export type Screen =
   | { name: 'profile' }
   | { name: 'settings' }
   | { name: 'notifications' }
+  | { name: 'createStory' }
+  | { name: 'requestProfile' }
+  | { name: 'storyViewer'; userId: string }
 
 const TAB_ORDER = ['feed', 'members', 'events'] as const
 
@@ -46,12 +55,15 @@ export default function App() {
   const [tree,         setTree]        = useState<Tree | null>(null)
   const [persons,      setPersons]     = useState<Person[]>([])
   const [events,       setEvents]      = useState<FamilyEvent[]>([])
+  const [stories,      setStories]     = useState<StoryItem[]>([])
   const [loading,      setLoading]     = useState(true)
   const [error,        setError]       = useState<string | null>(null)
   const [noFamily,     setNoFamily]    = useState(false)
   const [refreshing,   setRefreshing]  = useState(false)
   const [myRelatives,  setMyRelatives] = useState<Relative[]>([])
-  const [bellCount,    setBellCount]   = useState(2) // 2 unread demo notifications
+  const [bellCount,    setBellCount]   = useState(0)
+  const [onThisDay,    setOnThisDay]   = useState<OnThisDayEvent[]>([])
+  const [profileRequestPending, setProfileRequestPending] = useState(false)
 
   // Touch tracking for swipe-between-tabs gesture
   const swipeStartX = useRef(0)
@@ -76,25 +88,42 @@ export default function App() {
       // Hydrate authUser on every cold load (e.g. page reload where tokens are in localStorage
       // but authUser state is null because it was never persisted across sessions).
       const [me, families] = await Promise.all([
-        authUser ? Promise.resolve(authUser) : authApi.me(),
+        (authUser ? Promise.resolve(authUser) : authApi.me())
+          // Tag failures from identity hydration specifically — a stale token can be
+          // cryptographically valid but reference a user deleted by a DB reset/reseed,
+          // which surfaces as 404 rather than 401 and must still force a logout.
+          .catch(err => { throw Object.assign(err, { __authMeFailed: true }) }),
         familyApi.list(),
       ])
       if (!authUser) setAuthUser(me)
+
+      // Unread badge count — independent of tree data, never blocks the rest of loadData.
+      notificationApi.list(undefined, 20)
+        .then(res => setBellCount(res.items.filter(n => !n.openedAt).length))
+        .catch(() => {})
 
       if (families.length === 0) {
         setNoFamily(true)
         return
       }
       const treeId = families[0].id
-      const [personsData, eventsPage] = await Promise.all([
+      const [personsData, eventsPage, storiesData] = await Promise.all([
         personApi.list(treeId),
         eventApi.list(treeId, { limit: 50 }),
+        storyApi.list(treeId).catch(() => []),
       ])
       setTree(families[0] as Tree)
       setPersons(personsData)
       setEvents(eventsPage.items)
+      setStories(storiesData)
+
+      // "On this day" — most days this is empty, so it's fetched independently and
+      // never blocks the rest of the feed from loading.
+      eventApi.onThisDay(treeId)
+        .then(setOnThisDay)
+        .catch(() => setOnThisDay([]))
     } catch (err) {
-      if ((err as any)?.status === 401) {
+      if ((err as any)?.__authMeFailed || (err as any)?.status === 401) {
         handleLogout()
         return
       }
@@ -116,12 +145,21 @@ export default function App() {
     setTree(null)
     setPersons([])
     setEvents([])
+    setStories([])
+    setOnThisDay([])
+    setProfileRequestPending(false)
     setMyRelatives([])
     setNoFamily(false)
     setError(null)
     setScreen({ name: 'feed' })
     setLoading(false)
   }
+
+  // Register for push once auth hydration has resolved a real user — fire-and-forget,
+  // re-fires only if the logged-in user actually changes (not on every refresh).
+  useEffect(() => {
+    if (authUser) registerPushToken()
+  }, [authUser?.id])
 
   // Fetch MY relatives once when the linked person is known — passed to PersonScreen + MembersScreen
   const myPersonId = authUser ? persons.find(p => p.linkedUserId === authUser.id)?.id : undefined
@@ -143,6 +181,11 @@ export default function App() {
 
   function handleEventDeleted(eventId: string) {
     setEvents(prev => prev.filter(e => e.id !== eventId))
+  }
+
+  function handleStoryCreated(story: StoryItem) {
+    setStories(prev => [story, ...prev])
+    setScreen({ name: 'feed' })
   }
 
   function handleEventEdit(event: FamilyEvent) {
@@ -258,6 +301,52 @@ export default function App() {
     )
   }
 
+  // ── Create Story overlay (full-screen, no nav) ────────────────────────────
+  if (screen.name === 'createStory') {
+    return (
+      <View style={styles.root}>
+        <StatusBar style="dark" />
+        <CreateStoryScreen
+          treeId={tree.id}
+          onSave={handleStoryCreated}
+          onCancel={() => setScreen({ name: 'feed' })}
+        />
+      </View>
+    )
+  }
+
+  // ── Request Profile overlay (full-screen, no nav) ─────────────────────────
+  if (screen.name === 'requestProfile') {
+    return (
+      <View style={styles.root}>
+        <StatusBar style="dark" />
+        <RequestProfileScreen
+          treeId={tree.id}
+          persons={persons}
+          onSubmitted={() => {
+            setProfileRequestPending(true)
+            setScreen({ name: 'profile' })
+          }}
+          onCancel={() => setScreen({ name: 'profile' })}
+        />
+      </View>
+    )
+  }
+
+  // ── Story Viewer overlay (full-screen, immersive, no nav) ────────────────
+  if (screen.name === 'storyViewer') {
+    return (
+      <View style={styles.root}>
+        <StatusBar style="light" />
+        <StoryViewerScreen
+          allStories={stories}
+          startUserId={screen.userId}
+          onClose={() => setScreen({ name: 'feed' })}
+        />
+      </View>
+    )
+  }
+
   // ── Back handler per screen ──────────────────────────────────────────────
   function handleBack() {
     if (screen.name === 'person') {
@@ -274,7 +363,6 @@ export default function App() {
   }
 
   function handleBell() {
-    setBellCount(0)
     navigateTo({ name: 'notifications' })
   }
 
@@ -331,12 +419,17 @@ export default function App() {
             tree={tree}
             persons={persons}
             events={events}
+            stories={stories}
+            onThisDay={onThisDay}
             myRelatives={myRelatives}
             myPersonId={myPersonId}
+            myUserId={authUser?.id}
             navigateTo={(s) => {
               if (s.name === 'person') navigateTo({ ...s, from: 'feed' })
               else navigateTo(s)
             }}
+            onOpenStory={(userId) => navigateTo({ name: 'storyViewer', userId })}
+            onCreateStory={() => navigateTo({ name: 'createStory' })}
             refreshing={refreshing}
             onRefresh={() => loadData(true)}
             onEditEvent={handleEventEdit}
@@ -362,26 +455,40 @@ export default function App() {
           <EventsScreen
             events={events}
             treeId={tree.id}
+            openEventId={(screen as any).openEventId}
             navigateTo={(s) => {
               if (s.name === 'person') navigateTo({ ...s, from: 'events' })
               else navigateTo(s)
             }}
             refreshing={refreshing}
             onRefresh={() => loadData(true)}
-          />
-        )}
-        {screen.name === 'person' && (
-          <PersonScreen
-            personId={(screen as any).personId}
-            from={(screen as any).from}
-            treeId={tree.id}
-            persons={persons}
-            events={events}
-            navigateTo={navigateTo}
-            myPersonId={myPersonId}
             myRelatives={myRelatives}
+            myPersonId={myPersonId}
           />
         )}
+        {screen.name === 'person' &&
+          (persons.find((p) => p.id === (screen as any).personId)?.isDeceased ? (
+            <InMemoriamScreen
+              personId={(screen as any).personId}
+              treeId={tree.id}
+              persons={persons}
+              events={events}
+              navigateTo={navigateTo}
+              myRelatives={myRelatives}
+              myPersonId={myPersonId}
+            />
+          ) : (
+            <PersonScreen
+              personId={(screen as any).personId}
+              from={(screen as any).from}
+              treeId={tree.id}
+              persons={persons}
+              events={events}
+              navigateTo={navigateTo}
+              myPersonId={myPersonId}
+              myRelatives={myRelatives}
+            />
+          ))}
         {screen.name === 'profile' && authUser && (
           <ProfileScreen
             authUser={authUser}
@@ -390,16 +497,17 @@ export default function App() {
             treeId={tree.id}
             navigateTo={navigateTo}
             onLogout={handleLogout}
+            profileRequestPending={profileRequestPending}
             onPersonUpdate={(updated) =>
               setPersons(prev => prev.map(p => p.id === updated.id ? updated : p))
             }
           />
         )}
         {screen.name === 'settings' && (
-          <SettingsScreen navigateTo={navigateTo} />
+          <SettingsScreen navigateTo={navigateTo} treeId={tree.id} myRole={tree.members?.[0]?.role} />
         )}
         {screen.name === 'notifications' && (
-          <NotificationsScreen navigateTo={navigateTo} />
+          <NotificationsScreen navigateTo={navigateTo} onMarkAllRead={() => setBellCount(0)} />
         )}
       </View>
 

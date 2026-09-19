@@ -46,11 +46,11 @@ For each agent/skill, score it on these dimensions:
 # Read all agent files
 find .claude/agents -name "*.md" | sort
 
-# Read all skill files
-find .claude/skills -name "*.md" | sort
+# Read all skill files (includes the user-invoked slash-command skills)
+find .claude/skills -name "SKILL.md" | sort
 
-# Read the command files
-find .claude/commands -name "*.md" | sort
+# Read the modular rule files
+find .claude/rules -name "*.md" | sort
 ```
 
 For each file:

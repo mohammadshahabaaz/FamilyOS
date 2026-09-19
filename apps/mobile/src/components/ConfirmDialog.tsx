@@ -13,11 +13,14 @@ interface Props {
 }
 
 export default function ConfirmDialog({
-  visible, title, body,
+  visible,
+  title,
+  body,
   confirmLabel = 'Delete',
-  cancelLabel  = 'Cancel',
-  destructive  = true,
-  onConfirm, onCancel,
+  cancelLabel = 'Cancel',
+  destructive = true,
+  onConfirm,
+  onCancel,
 }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -63,20 +66,39 @@ const styles = StyleSheet.create({
     boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
     alignItems: 'center',
   },
-  title: { fontSize: 17, fontWeight: '800', color: C.textPrimary, marginBottom: 10, textAlign: 'center' },
-  body: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  title: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: C.textPrimary,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  body: {
+    fontSize: 14,
+    color: C.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
   buttons: { flexDirection: 'row', gap: 12, width: '100%' },
   cancelBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: C.surfaceEl, borderWidth: 1, borderColor: C.border,
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: C.surfaceEl,
+    borderWidth: 1,
+    borderColor: C.border,
     alignItems: 'center',
     // @ts-ignore
     cursor: 'pointer',
   },
   cancelText: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
   confirmBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: C.accent, alignItems: 'center',
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: C.accent,
+    alignItems: 'center',
     // @ts-ignore
     cursor: 'pointer',
   },

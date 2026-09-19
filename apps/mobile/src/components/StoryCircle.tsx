@@ -1,32 +1,43 @@
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native'
-import type { Person } from '../lib/types'
 import { C } from '../lib/theme'
 
 interface Props {
-  person: Person
-  navigateTo: (personId: string) => void
+  name: string
+  avatarUrl?: string | null
+  onPress: () => void
   seen?: boolean
+  isAdd?: boolean // renders a dashed "+" tile for creating a new story
 }
 
-export default function StoryCircle({ person, navigateTo, seen = false }: Props) {
+export default function StoryCircle({
+  name,
+  avatarUrl,
+  onPress,
+  seen = false,
+  isAdd = false,
+}: Props) {
   return (
-    <TouchableOpacity
-      style={styles.wrap}
-      onPress={() => navigateTo(person.id)}
-      activeOpacity={0.8}
-    >
-      <View style={[styles.ring, seen ? styles.ringSeen : undefined]}>
-        <View style={styles.ringInner}>
-          {person.profilePicUrl ? (
-            <Image source={{ uri: person.profilePicUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.initial}>{person.firstName?.[0] ?? '?'}</Text>
-            </View>
-          )}
+    <TouchableOpacity style={styles.wrap} onPress={onPress} activeOpacity={0.8}>
+      {isAdd ? (
+        <View style={styles.addRing}>
+          <Text style={styles.addIcon}>+</Text>
         </View>
-      </View>
-      <Text style={styles.name} numberOfLines={1}>{person.firstName}</Text>
+      ) : (
+        <View style={[styles.ring, seen ? styles.ringSeen : undefined]}>
+          <View style={styles.ringInner}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text style={styles.initial}>{name?.[0]?.toUpperCase() ?? '?'}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+      <Text style={styles.name} numberOfLines={1}>
+        {name}
+      </Text>
     </TouchableOpacity>
   )
 }
@@ -72,6 +83,23 @@ const styles = StyleSheet.create({
   initial: {
     fontSize: 22,
     fontWeight: '700',
+    color: C.accent,
+  },
+  addRing: {
+    width: 68,
+    height: 68,
+    borderRadius: 16,
+    marginBottom: 5,
+    borderWidth: 2,
+    borderColor: C.accent,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.accentBg,
+  },
+  addIcon: {
+    fontSize: 26,
+    fontWeight: '300',
     color: C.accent,
   },
   name: {

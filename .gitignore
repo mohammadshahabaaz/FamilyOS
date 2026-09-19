@@ -7,3 +7,27 @@ dist/
 *.log
 coverage/
 prisma/dev.db
+
+# Claude Code personal files
+.claude/settings.local.json
+CLAUDE.local.md
+
+# env variants (keep examples)
+.env.*
+!.env.example
+
+# build / tool caches
+*.tsbuildinfo
+.eslintcache
+apps/mobile/web-build/
+
+# editors
+.vscode/
+.idea/
+
+# signing keys / credentials (EAS, iOS, Android)
+*.pem
+*.p8
+*.p12
+*.jks
+*.keystore

@@ -1,6 +1,7 @@
 import { registerRootComponent } from 'expo'
 import App from './App'
 import { initTheme } from './src/lib/theme'
+import ErrorBoundary from './src/components/ErrorBoundary'
 
 // Fix web viewport height + inject CSS variable defaults (Indigo theme)
 // initTheme() overrides these with the user's stored preference before first paint
@@ -21,4 +22,12 @@ if (typeof document !== 'undefined') {
   initTheme()
 }
 
-registerRootComponent(App)
+function Root() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  )
+}
+
+registerRootComponent(Root)

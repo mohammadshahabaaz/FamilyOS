@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, Switch,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  Switch,
 } from 'react-native'
 import { personApi } from '../lib/api'
 import { ApiError } from '../lib/api'
 import type { Person } from '../lib/types'
+import { C } from '../lib/theme'
 
 interface Props {
   treeId: string
@@ -21,15 +28,16 @@ const GENDERS = [
 ] as const
 
 export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: Props) {
-  const [firstName,  setFirstName]  = useState('')
-  const [lastName,   setLastName]   = useState('')
-  const [gender,     setGender]     = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE')
-  const [dob,        setDob]        = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE')
+  const [dob, setDob] = useState('')
   const [isDeceased, setIsDeceased] = useState(false)
-  const [relPerson,  setRelPerson]  = useState<string | null>(null)
-  const [relType,    setRelType]    = useState<'PARENT' | 'SPOUSE' | 'SIBLING'>('PARENT')
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
+  const [dod, setDod] = useState('')
+  const [relPerson, setRelPerson] = useState<string | null>(null)
+  const [relType, setRelType] = useState<'PARENT' | 'SPOUSE' | 'SIBLING'>('PARENT')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSave() {
     if (!firstName.trim() || !lastName.trim()) {
@@ -41,9 +49,10 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
     try {
       const person = await personApi.create(treeId, {
         firstName: firstName.trim(),
-        lastName:  lastName.trim(),
+        lastName: lastName.trim(),
         gender,
         dateOfBirth: dob || undefined,
+        dateOfDeath: isDeceased ? dod || undefined : undefined,
         isDeceased,
       })
       // Surface person immediately — edge failure must not hide them
@@ -52,11 +61,13 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
         try {
           await personApi.addEdge(treeId, {
             fromPersonId: relPerson,
-            toPersonId:   person.id,
+            toPersonId: person.id,
             relationType: relType,
           })
         } catch {
-          setError('Person added, but relationship could not be saved. You can add it from the Members screen.')
+          setError(
+            'Person added, but relationship could not be saved. You can add it from the Members screen.',
+          )
           setLoading(false)
           return
         }
@@ -76,10 +87,11 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add Person</Text>
         <TouchableOpacity onPress={handleSave} disabled={loading} style={styles.saveBtn}>
-          {loading
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.saveText}>Save</Text>
-          }
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.saveText}>Save</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -89,16 +101,26 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
         <Text style={styles.section}>Identity</Text>
 
         <Text style={styles.label}>First name *</Text>
-        <TextInput style={styles.input} placeholder="e.g. Tariq" placeholderTextColor="#9CA3AF"
-          value={firstName} onChangeText={setFirstName} />
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. Tariq"
+          placeholderTextColor={C.textSecondary}
+          value={firstName}
+          onChangeText={setFirstName}
+        />
 
         <Text style={styles.label}>Last name *</Text>
-        <TextInput style={styles.input} placeholder="e.g. Khan" placeholderTextColor="#9CA3AF"
-          value={lastName} onChangeText={setLastName} />
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. Khan"
+          placeholderTextColor={C.textSecondary}
+          value={lastName}
+          onChangeText={setLastName}
+        />
 
         <Text style={styles.label}>Gender</Text>
         <View style={styles.genderRow}>
-          {GENDERS.map(g => (
+          {GENDERS.map((g) => (
             <TouchableOpacity
               key={g.value}
               style={[styles.genderChip, gender === g.value && styles.genderChipActive]}
@@ -119,9 +141,16 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
           onChange={(e: any) => setDob(e.target.value)}
           max={new Date().toLocaleDateString('en-CA')}
           style={{
-            fontSize: 15, color: '#111827', backgroundColor: '#F9FAFB',
-            border: '1px solid #E5E7EB', borderRadius: 10, padding: '10px 12px',
-            marginBottom: 12, width: '100%', boxSizing: 'border-box', outline: 'none',
+            fontSize: 15,
+            color: C.textPrimary,
+            backgroundColor: C.surfaceEl,
+            border: `1px solid ${C.border}`,
+            borderRadius: 10,
+            padding: '10px 12px',
+            marginBottom: 12,
+            width: '100%',
+            boxSizing: 'border-box',
+            outline: 'none',
           }}
         />
 
@@ -130,6 +159,32 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
           <Switch value={isDeceased} onValueChange={setIsDeceased} />
         </View>
 
+        {isDeceased && (
+          <>
+            <Text style={styles.label}>Date of passing</Text>
+            {/* @ts-ignore — web native date picker */}
+            <input
+              type="date"
+              value={dod}
+              onChange={(e: any) => setDod(e.target.value)}
+              min={dob || undefined}
+              max={new Date().toLocaleDateString('en-CA')}
+              style={{
+                fontSize: 15,
+                color: C.textPrimary,
+                backgroundColor: C.surfaceEl,
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                padding: '10px 12px',
+                marginBottom: 12,
+                width: '100%',
+                boxSizing: 'border-box',
+                outline: 'none',
+              }}
+            />
+          </>
+        )}
+
         {persons.length > 0 && (
           <>
             <Text style={styles.section}>Relationship to existing member</Text>
@@ -137,7 +192,7 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
 
             <Text style={styles.label}>Relationship type</Text>
             <View style={styles.genderRow}>
-              {(['PARENT', 'SPOUSE', 'SIBLING'] as const).map(rt => (
+              {(['PARENT', 'SPOUSE', 'SIBLING'] as const).map((rt) => (
                 <TouchableOpacity
                   key={rt}
                   style={[styles.genderChip, relType === rt && styles.genderChipActive]}
@@ -152,7 +207,8 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
 
             {relPerson && (
               <Text style={styles.edgeHint}>
-                {persons.find(p => p.id === relPerson)?.firstName ?? '?'} is {relType.toLowerCase()} of the new person
+                {persons.find((p) => p.id === relPerson)?.firstName ?? '?'} is{' '}
+                {relType.toLowerCase()} of the new person
               </Text>
             )}
             <Text style={styles.label}>From person</Text>
@@ -165,7 +221,7 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
                   None
                 </Text>
               </TouchableOpacity>
-              {persons.map(p => (
+              {persons.map((p) => (
                 <TouchableOpacity
                   key={p.id}
                   style={[styles.personRow, relPerson === p.id && styles.personRowActive]}
@@ -187,7 +243,7 @@ export default function AddPersonScreen({ treeId, persons, onSave, onCancel }: P
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: C.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -195,43 +251,86 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#DBDBDB',
+    borderBottomColor: C.border,
   },
   cancelBtn: { minWidth: 60 },
-  cancelText: { fontSize: 15, color: '#262626' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#262626' },
+  cancelText: { fontSize: 15, color: C.textSecondary },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
   saveBtn: {
-    backgroundColor: '#111827', borderRadius: 8,
-    paddingHorizontal: 16, paddingVertical: 7, minWidth: 60, alignItems: 'center',
+    backgroundColor: C.accent,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    minWidth: 60,
+    alignItems: 'center',
   },
   saveText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   scroll: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
-  error: { fontSize: 13, color: '#EF4444', marginBottom: 12 },
-  section: { fontSize: 12, fontWeight: '800', color: '#6B7280', letterSpacing: 1, marginTop: 16, marginBottom: 8, textTransform: 'uppercase' },
-  hint: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
+  error: { fontSize: 13, color: C.danger, marginBottom: 12 },
+  section: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: C.textSecondary,
+    letterSpacing: 1,
+    marginTop: 16,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  hint: { fontSize: 12, color: C.textSecondary, marginBottom: 8 },
   edgeHint: {
-    fontSize: 13, color: '#0369A1', backgroundColor: '#E0F2FE',
-    borderRadius: 8, padding: 10, marginBottom: 8,
+    fontSize: 13,
+    color: C.accent,
+    backgroundColor: C.accentBg,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
     fontWeight: '500',
   },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6 },
   input: {
-    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11,
-    fontSize: 15, color: '#111827', marginBottom: 12,
+    backgroundColor: C.surfaceEl,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+    color: C.textPrimary,
+    marginBottom: 12,
   },
   genderRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   genderChip: {
-    flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center',
-    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: C.surfaceEl,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  genderChipActive: { backgroundColor: '#111827', borderColor: '#111827' },
-  genderText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  genderChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+  genderText: { fontSize: 13, fontWeight: '600', color: C.textSecondary },
   genderTextActive: { color: '#FFFFFF' },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  personList: { maxHeight: 200, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, marginBottom: 12 },
-  personRow: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F3F4F6' },
-  personRowActive: { backgroundColor: '#F0F9FF' },
-  personName: { fontSize: 14, color: '#374151' },
-  personNameActive: { fontWeight: '700', color: '#0369A1' },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  personList: {
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  personRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.borderSoft,
+  },
+  personRowActive: { backgroundColor: C.accentBg },
+  personName: { fontSize: 14, color: C.textPrimary },
+  personNameActive: { fontWeight: '700', color: C.accent },
 })

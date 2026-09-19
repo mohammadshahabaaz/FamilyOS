@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { C } from '../lib/theme'
+import { C, shadow } from '../lib/theme'
 import type { Screen } from '../../App'
 
 interface Props {
@@ -9,23 +9,29 @@ interface Props {
 }
 
 const TABS = [
-  { name: 'feed'    as const, label: 'Home'    },
-  { name: 'members' as const, label: 'Family'  },
-  { name: 'events'  as const, label: 'Timeline'},
+  { name: 'feed' as const, label: 'Home' },
+  { name: 'members' as const, label: 'Family' },
+  { name: 'events' as const, label: 'Timeline' },
 ]
 
 export default function BottomTabs({ screen, navigateTo, onCreateEvent }: Props) {
-  const active = screen.name === 'person'
-    ? ((screen as any).from ?? 'members')
-    : screen.name === 'createEvent' || screen.name === 'editEvent' || screen.name === 'addPerson' || screen.name === 'profile' || screen.name === 'settings' || screen.name === 'notifications'
-      ? ''
-      : screen.name
+  const active =
+    screen.name === 'person'
+      ? ((screen as any).from ?? 'members')
+      : screen.name === 'createEvent' ||
+          screen.name === 'editEvent' ||
+          screen.name === 'addPerson' ||
+          screen.name === 'profile' ||
+          screen.name === 'settings' ||
+          screen.name === 'notifications'
+        ? ''
+        : screen.name
 
   return (
     <View style={styles.container}>
       {/* Tab strip */}
       <View style={styles.tabs}>
-        {TABS.map(tab => {
+        {TABS.map((tab) => {
           const isActive = active === tab.name
           return (
             <TouchableOpacity
@@ -34,9 +40,7 @@ export default function BottomTabs({ screen, navigateTo, onCreateEvent }: Props)
               onPress={() => navigateTo({ name: tab.name })}
               activeOpacity={0.7}
             >
-              <Text style={[styles.label, isActive && styles.labelActive]}>
-                {tab.label}
-              </Text>
+              <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
               {isActive && <View style={styles.activeBar} />}
             </TouchableOpacity>
           )
@@ -48,6 +52,10 @@ export default function BottomTabs({ screen, navigateTo, onCreateEvent }: Props)
         style={styles.fab}
         onPress={onCreateEvent}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Create a memory"
+        // @ts-ignore — web-only hover-lift opt-in, see theme.ts
+        className="fo-lift"
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
@@ -104,7 +112,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // @ts-ignore
-    boxShadow: '0 4px 16px rgba(139,69,19,0.35)',
+    boxShadow: shadow.fab,
+    // @ts-ignore
     cursor: 'pointer',
     zIndex: 50,
   },

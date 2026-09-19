@@ -1,0 +1,67 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: familyos
+          POSTGRES_PASSWORD: familyos
+          POSTGRES_DB: familyos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # env.ts validates these unconditionally at import time (Zod, throws if missing) —
+    # required even though the unit test suite mocks db/redis directly, since importing
+    # a service module still pulls in the real env.ts alongside the mocks.
+    env:
+      DATABASE_URL: postgresql://familyos:familyos@localhost:5432/familyos
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-characters
+      R2_ENDPOINT: https://placeholder.r2.cloudflarestorage.com
+      R2_ACCESS_KEY_ID: placeholder
+      R2_SECRET_ACCESS_KEY: placeholder
+      R2_BUCKET: familyos-media
+      R2_PUBLIC_URL: https://media.placeholder.dev
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npx prisma generate --schema apps/api/prisma/schema.prisma
+      - run: npm run db:push:ci
+      - run: npm run type-check           # tsc --noEmit (shared + api)
+      - run: npm run lint                 # eslint apps/api/src --max-warnings 0
+      - run: npm run format:check         # prettier --check
+      - run: npm run test                 # vitest run
+      - run: npm run build                # tsc (compile check only, not deployed from here)
+
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm run type-check:mobile
+      - run: npm run test:mobile

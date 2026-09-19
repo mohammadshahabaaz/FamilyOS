@@ -1,23 +1,30 @@
 import React, { useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native'
 import { login } from '../lib/auth'
 import { ApiError } from '../lib/api'
 import type { AuthUser } from '../lib/auth'
+import { C, F } from '../lib/theme'
 
 interface Props {
-  onLogin:  (user: AuthUser) => void
+  onLogin: (user: AuthUser) => void
   onSignup: () => void
 }
 
 export default function LoginScreen({ onLogin, onSignup }: Props) {
-  const [mobile,   setMobile]   = useState('')
+  const [mobile, setMobile] = useState('')
   const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [focused,  setFocused]  = useState<'mobile' | 'password' | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [focused, setFocused] = useState<'mobile' | 'password' | null>(null)
 
   async function handleLogin() {
     if (!mobile.trim() || !password) {
@@ -61,7 +68,7 @@ export default function LoginScreen({ onLogin, onSignup }: Props) {
         <TextInput
           style={[styles.input, focused === 'mobile' && styles.inputFocused]}
           placeholder="+91 98765 43210"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.textSecondary}
           keyboardType="phone-pad"
           autoComplete="tel"
           value={mobile}
@@ -74,7 +81,7 @@ export default function LoginScreen({ onLogin, onSignup }: Props) {
         <TextInput
           style={[styles.input, focused === 'password' && styles.inputFocused]}
           placeholder="••••••••"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.textSecondary}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
@@ -90,10 +97,11 @@ export default function LoginScreen({ onLogin, onSignup }: Props) {
           disabled={loading}
           activeOpacity={0.85}
         >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.btnText}>Log in</Text>
-          }
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.btnText}>Log in</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.divider}>
@@ -113,7 +121,7 @@ export default function LoginScreen({ onLogin, onSignup }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: C.bg,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -121,7 +129,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.surface,
     borderRadius: 16,
     padding: 32,
     // @ts-ignore
@@ -129,25 +137,28 @@ const styles = StyleSheet.create({
   },
   logoWrap: { alignItems: 'center', marginBottom: 12 },
   logoBadge: {
-    width: 56, height: 56, borderRadius: 16,
-    backgroundColor: '#111827',
-    alignItems: 'center', justifyContent: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: C.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
     // @ts-ignore
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
   },
   logoBadgeText: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
   logo: {
     // @ts-ignore
-    fontFamily: 'Georgia, serif',
+    fontFamily: F.serif,
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: C.textPrimary,
     textAlign: 'center',
     marginBottom: 4,
   },
   tagline: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     textAlign: 'center',
     marginBottom: 28,
   },
@@ -159,11 +170,11 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
-  errorBannerText: { color: '#B91C1C', fontSize: 13, textAlign: 'center' },
+  errorBannerText: { color: C.danger, fontSize: 13, textAlign: 'center' },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#374151',
+    color: C.textSecondary,
     marginBottom: 6,
     marginTop: 14,
     letterSpacing: 0.3,
@@ -172,24 +183,24 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#FAFAFA',
+    color: C.textPrimary,
+    backgroundColor: C.surfaceEl,
     // @ts-ignore
     outlineStyle: 'none',
     // @ts-ignore
     transition: 'border-color 0.15s',
   },
   inputFocused: {
-    borderColor: '#111827',
-    backgroundColor: '#FFFFFF',
+    borderColor: C.accent,
+    backgroundColor: C.surface,
   },
   btn: {
-    backgroundColor: '#111827',
+    backgroundColor: C.accent,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -210,11 +221,11 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     gap: 10,
   },
-  divLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB' },
-  divText: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
+  divLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.border },
+  divText: { color: C.textSecondary, fontSize: 12, fontWeight: '600' },
   signupBtn: {
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: C.border,
     borderRadius: 10,
     paddingVertical: 13,
     alignItems: 'center',
@@ -222,7 +233,7 @@ const styles = StyleSheet.create({
     transition: 'border-color 0.15s',
   },
   signupText: {
-    color: '#374151',
+    color: C.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },

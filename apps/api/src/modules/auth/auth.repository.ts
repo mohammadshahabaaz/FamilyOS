@@ -16,7 +16,7 @@ export const authRepository = {
   createUser(data: {
     mobileNumber: string
     passwordHash: string
-    username:     string
+    username: string
     uniqueUserId: string
   }) {
     return db.user.create({ data })

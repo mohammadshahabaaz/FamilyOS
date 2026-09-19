@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { View, Text, ScrollView, Modal, TouchableOpacity, Image, StyleSheet } from 'react-native'
 import { C, F, shadow } from '../lib/theme'
 import { EVENT_GRADIENT, EVENT_LABEL, formatDate } from '../lib/types'
 import type { FamilyEvent, Relative } from '../lib/types'
 import type { Screen } from '../../App'
+import EventDetailModal from './EventDetailModal'
 
 export type StatsSheetType = 'events' | 'relatives' | 'memories'
 
@@ -10,24 +12,35 @@ interface Props {
   type: StatsSheetType | null
   events: FamilyEvent[]
   relatives: Relative[]
+  treeId: string
+  myPersonId?: string
   navigateTo: (s: Screen) => void
   onClose: () => void
 }
 
 const TITLES: Record<StatsSheetType, string> = {
-  events:    'Your Events',
+  events: 'Your Events',
   relatives: 'Your Relatives',
-  memories:  'Your Memories',
+  memories: 'Your Memories',
 }
 
-export default function ProfileStatsSheet({ type, events, relatives, navigateTo, onClose }: Props) {
+export default function ProfileStatsSheet({
+  type,
+  events,
+  relatives,
+  treeId,
+  myPersonId,
+  navigateTo,
+  onClose,
+}: Props) {
+  const [selectedEvent, setSelectedEvent] = useState<FamilyEvent | null>(null)
+
   if (!type) return null
 
-  const photos = events.flatMap(e => e.media.map(m => ({ ...m, event: e })))
+  const photos = events.flatMap((e) => e.media.map((m) => ({ ...m, event: e })))
 
   function openEvent(e: FamilyEvent) {
-    onClose()
-    navigateTo({ name: 'events' })
+    setSelectedEvent(e)
   }
 
   function openPerson(personId: string) {
@@ -36,12 +49,7 @@ export default function ProfileStatsSheet({ type, events, relatives, navigateTo,
   }
 
   return (
-    <Modal
-      visible={!!type}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={!!type} animationType="slide" transparent onRequestClose={onClose}>
       {/* Backdrop */}
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
@@ -55,93 +63,138 @@ export default function ProfileStatsSheet({ type, events, relatives, navigateTo,
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>{TITLES[type]}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <Text style={styles.closeIcon}>✕</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-
           {/* EVENTS tab */}
-          {type === 'events' && (
-            events.length === 0 ? (
+          {type === 'events' &&
+            (events.length === 0 ? (
               <Empty icon="📅" text="No events yet" sub="Tag yourself in events to see them here" />
-            ) : events.map(e => {
-              const colors = EVENT_GRADIENT[e.type] ?? EVENT_GRADIENT.CUSTOM
-              return (
-                <TouchableOpacity key={e.id} style={styles.eventRow} onPress={() => openEvent(e)} activeOpacity={0.85}>
-                  <View style={[styles.eventColorBar, {
-                    // @ts-ignore
-                    background: `linear-gradient(180deg, ${colors[0]}, ${colors[1]})`,
-                  }]} />
-                  <View style={styles.eventInfo}>
-                    <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
-                    <Text style={styles.eventMeta}>{EVENT_LABEL[e.type]} · {formatDate(e.date)}</Text>
-                    <Text style={styles.eventStats}>
-                      {e.likeCount} likes · {e.commentCount} comments · {e.media.length} photos
-                    </Text>
-                  </View>
-                  {e.media[0] && (
-                    <Image source={{ uri: e.media[0].thumbnail }} style={styles.eventThumb} resizeMode="cover" />
-                  )}
-                </TouchableOpacity>
-              )
-            })
-          )}
+            ) : (
+              events.map((e) => {
+                const colors = EVENT_GRADIENT[e.type] ?? EVENT_GRADIENT.CUSTOM
+                return (
+                  <TouchableOpacity
+                    key={e.id}
+                    style={styles.eventRow}
+                    onPress={() => openEvent(e)}
+                    activeOpacity={0.85}
+                  >
+                    <View
+                      style={[
+                        styles.eventColorBar,
+                        {
+                          // @ts-ignore
+                          background: `linear-gradient(180deg, ${colors[0]}, ${colors[1]})`,
+                        },
+                      ]}
+                    />
+                    <View style={styles.eventInfo}>
+                      <Text style={styles.eventTitle} numberOfLines={1}>
+                        {e.title}
+                      </Text>
+                      <Text style={styles.eventMeta}>
+                        {EVENT_LABEL[e.type]} · {formatDate(e.date)}
+                      </Text>
+                      <Text style={styles.eventStats}>
+                        {e.likeCount} likes · {e.commentCount} comments · {e.media.length} photos
+                      </Text>
+                    </View>
+                    {e.media[0] && (
+                      <Image
+                        source={{ uri: e.media[0].thumbnail }}
+                        style={styles.eventThumb}
+                        resizeMode="cover"
+                      />
+                    )}
+                  </TouchableOpacity>
+                )
+              })
+            ))}
 
           {/* RELATIVES tab */}
-          {type === 'relatives' && (
-            relatives.length === 0 ? (
+          {type === 'relatives' &&
+            (relatives.length === 0 ? (
               <Empty icon="👨‍👩‍👦" text="No relatives linked" sub="Add family members to your tree" />
-            ) : relatives.map(r => (
-              <TouchableOpacity
-                key={r.person.id}
-                style={styles.relRow}
-                onPress={() => openPerson(r.person.id)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.relAvatar}>
-                  {r.person.profilePicUrl ? (
-                    <Image source={{ uri: r.person.profilePicUrl }} style={styles.relAvatarImg} />
-                  ) : (
-                    <Text style={styles.relAvatarInitial}>{r.person.firstName?.[0] ?? '?'}</Text>
-                  )}
-                </View>
-                <View style={styles.relInfo}>
-                  <Text style={styles.relName}>{r.person.firstName} {r.person.lastName}</Text>
-                  <Text style={styles.relLabel}>{r.relationship}</Text>
-                </View>
-                <Text style={styles.relArrow}>›</Text>
-              </TouchableOpacity>
-            ))
-          )}
+            ) : (
+              relatives.map((r) => (
+                <TouchableOpacity
+                  key={r.person.id}
+                  style={styles.relRow}
+                  onPress={() => openPerson(r.person.id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.relAvatar}>
+                    {r.person.profilePicUrl ? (
+                      <Image source={{ uri: r.person.profilePicUrl }} style={styles.relAvatarImg} />
+                    ) : (
+                      <Text style={styles.relAvatarInitial}>{r.person.firstName?.[0] ?? '?'}</Text>
+                    )}
+                  </View>
+                  <View style={styles.relInfo}>
+                    <Text style={styles.relName}>
+                      {r.person.firstName} {r.person.lastName}
+                    </Text>
+                    <Text style={styles.relLabel}>{r.relationship}</Text>
+                  </View>
+                  <Text style={styles.relArrow}>›</Text>
+                </TouchableOpacity>
+              ))
+            ))}
 
           {/* MEMORIES tab */}
-          {type === 'memories' && (
-            photos.length === 0 ? (
+          {type === 'memories' &&
+            (photos.length === 0 ? (
               <Empty icon="📸" text="No photos yet" sub="Upload photos when creating events" />
             ) : (
               <View style={styles.photoGrid}>
-                {photos.map(m => (
+                {photos.map((m) => (
                   <TouchableOpacity
                     key={m.id}
                     style={styles.photoCell}
                     onPress={() => openEvent(m.event)}
                     activeOpacity={0.85}
                   >
-                    <Image source={{ uri: m.url || m.thumbnail }} style={styles.photoImg} resizeMode="cover" />
+                    <Image
+                      source={{ uri: m.url || m.thumbnail }}
+                      style={styles.photoImg}
+                      resizeMode="cover"
+                    />
                     <View style={styles.photoOverlay}>
-                      <Text style={styles.photoEventTitle} numberOfLines={1}>{m.event.title}</Text>
+                      <Text style={styles.photoEventTitle} numberOfLines={1}>
+                        {m.event.title}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 ))}
               </View>
-            )
-          )}
+            ))}
 
           <View style={styles.bottomPad} />
         </ScrollView>
       </View>
+
+      {selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          treeId={treeId}
+          visible={!!selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          navigateTo={navigateTo}
+          myRelatives={relatives}
+          myPersonId={myPersonId}
+        />
+      )}
     </Modal>
   )
 }
@@ -163,10 +216,13 @@ const styles = StyleSheet.create({
   },
   sheet: {
     position: 'absolute',
-    bottom: 0, left: 0, right: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: '80%',
     backgroundColor: C.bg,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     // @ts-ignore
     boxShadow: '0 -4px 32px rgba(0,0,0,0.18)',
     overflow: 'hidden',
@@ -175,18 +231,28 @@ const styles = StyleSheet.create({
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.border },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
   title: {
-    fontSize: 18, fontWeight: '800', color: C.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    color: C.textPrimary,
     // @ts-ignore
     fontFamily: F.serif,
   },
   closeBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: C.surfaceEl, alignItems: 'center', justifyContent: 'center',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.surfaceEl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeIcon: { fontSize: 15, color: C.textSecondary, fontWeight: '700' },
 
@@ -194,10 +260,14 @@ const styles = StyleSheet.create({
 
   // Events
   eventRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: C.borderSoft,
-    backgroundColor: C.surface, gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.borderSoft,
+    backgroundColor: C.surface,
+    gap: 12,
     // @ts-ignore
     cursor: 'pointer',
   },
@@ -207,23 +277,36 @@ const styles = StyleSheet.create({
   eventMeta: { fontSize: 12, color: C.accent, fontWeight: '600', marginBottom: 2 },
   eventStats: { fontSize: 11, color: C.textSecondary },
   eventThumb: {
-    width: 52, height: 52, borderRadius: 8,
-    backgroundColor: C.accentBg, flexShrink: 0,
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: C.accentBg,
+    flexShrink: 0,
   },
 
   // Relatives
   relRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: C.borderSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.borderSoft,
     backgroundColor: C.surface,
     // @ts-ignore
     cursor: 'pointer',
   },
   relAvatar: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: C.accentBg, borderWidth: 1.5, borderColor: C.border,
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: C.accentBg,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     flexShrink: 0,
   },
   relAvatarImg: { width: '100%', height: '100%' },
@@ -231,10 +314,16 @@ const styles = StyleSheet.create({
   relInfo: { flex: 1 },
   relName: { fontSize: 14, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
   relLabel: {
-    fontSize: 12, color: C.accent, fontWeight: '600',
-    backgroundColor: C.accentBg, alignSelf: 'flex-start',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
-    borderWidth: 1, borderColor: C.accentSoft,
+    fontSize: 12,
+    color: C.accent,
+    fontWeight: '600',
+    backgroundColor: C.accentBg,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.accentSoft,
   },
   relArrow: { fontSize: 20, color: C.border, fontWeight: '700' },
 
@@ -243,9 +332,13 @@ const styles = StyleSheet.create({
   photoCell: { width: '33.33%', aspectRatio: 1, position: 'relative' },
   photoImg: { width: '100%', height: '100%' },
   photoOverlay: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    paddingHorizontal: 4, paddingVertical: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
   },
   photoEventTitle: { fontSize: 9, fontWeight: '700', color: '#FFFFFF' },
 

@@ -13,9 +13,13 @@ const personRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   // GET /trees/:treeId/persons/:personId
-  fastify.get<{ Params: { treeId: string; personId: string } }>('/:personId', { ...guard }, async (req) => {
-    return personService.getPerson(req.user.sub, req.params.treeId, req.params.personId)
-  })
+  fastify.get<{ Params: { treeId: string; personId: string } }>(
+    '/:personId',
+    { ...guard },
+    async (req) => {
+      return personService.getPerson(req.user.sub, req.params.treeId, req.params.personId)
+    },
+  )
 
   // POST /trees/:treeId/persons
   fastify.post<{ Params: { treeId: string } }>('/', { ...guard }, async (req, reply) => {
@@ -25,24 +29,37 @@ const personRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   // PATCH /trees/:treeId/persons/:personId
-  fastify.patch<{ Params: { treeId: string; personId: string } }>('/:personId', { ...guard }, async (req) => {
-    const body = updatePersonSchema.parse(req.body)
-    return personService.updatePerson(req.user.sub, req.params.treeId, req.params.personId, body)
-  })
+  fastify.patch<{ Params: { treeId: string; personId: string } }>(
+    '/:personId',
+    { ...guard },
+    async (req) => {
+      const body = updatePersonSchema.parse(req.body)
+      return personService.updatePerson(req.user.sub, req.params.treeId, req.params.personId, body)
+    },
+  )
 
   // DELETE /trees/:treeId/persons/:personId
-  fastify.delete<{ Params: { treeId: string; personId: string } }>('/:personId', { ...guard }, async (req, reply) => {
-    await personService.deletePerson(req.user.sub, req.params.treeId, req.params.personId)
-    return reply.code(204).send()
-  })
+  fastify.delete<{ Params: { treeId: string; personId: string } }>(
+    '/:personId',
+    { ...guard },
+    async (req, reply) => {
+      await personService.deletePerson(req.user.sub, req.params.treeId, req.params.personId)
+      return reply.code(204).send()
+    },
+  )
 
   // POST /trees/:treeId/persons/:personId/link-user
   fastify.post<{ Params: { treeId: string; personId: string } }>(
     '/:personId/link-user',
     { ...guard },
     async (req) => {
-      const { userId } = (req.body as { userId: string })
-      return personService.linkUserToPerson(req.user.sub, req.params.treeId, req.params.personId, userId)
+      const { userId } = req.body as { userId: string }
+      return personService.linkUserToPerson(
+        req.user.sub,
+        req.params.treeId,
+        req.params.personId,
+        userId,
+      )
     },
   )
 

@@ -1,10 +1,11 @@
 import fp from 'fastify-plugin'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { UnauthorizedError } from '@familyos/shared'
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     payload: { sub: string; uniqueUserId: string }
-    user:    { sub: string; uniqueUserId: string }
+    user: { sub: string; uniqueUserId: string }
   }
 }
 
@@ -15,11 +16,11 @@ declare module 'fastify' {
 }
 
 const authGuardPlugin: FastifyPluginAsync = async (fastify) => {
-  fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.decorate('authenticate', async (request: FastifyRequest, _reply: FastifyReply) => {
     try {
       await request.jwtVerify()
-    } catch (err) {
-      reply.code(401).send({ statusCode: 401, error: 'Unauthorized', message: 'Invalid or expired token' })
+    } catch {
+      throw new UnauthorizedError('Invalid or expired token')
     }
   })
 }

@@ -10,32 +10,41 @@ const KEYS = { access: 'fo_access', refresh: 'fo_refresh' }
 function persist(key: string, value: string | null) {
   if (Platform.OS !== 'web') return
   try {
-    value === null
-      ? localStorage.removeItem(key)
-      : localStorage.setItem(key, value)
+    value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value)
   } catch {}
 }
 
 function read(key: string): string | null {
   if (Platform.OS !== 'web') return null
-  try { return localStorage.getItem(key) } catch { return null }
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
 }
 
-let _access:  string | null = read(KEYS.access)
+let _access: string | null = read(KEYS.access)
 let _refresh: string | null = read(KEYS.refresh)
+
+// Single-flight guard. The API rotates refresh tokens and treats a replayed
+// (already-rotated) token as theft, revoking the whole token family. Parallel
+// requests that all 401 at once would each present the same token, so every
+// caller after the first would look like a replay and nuke the session. They
+// share one in-flight refresh instead.
+let _inFlight: Promise<string | null> | null = null
 
 export const tokenStore = {
   set(access: string, refresh: string) {
-    _access  = access
+    _access = access
     _refresh = refresh
-    persist(KEYS.access,  access)
+    persist(KEYS.access, access)
     persist(KEYS.refresh, refresh)
   },
 
   clear() {
-    _access  = null
+    _access = null
     _refresh = null
-    persist(KEYS.access,  null)
+    persist(KEYS.access, null)
     persist(KEYS.refresh, null)
   },
 
@@ -46,14 +55,23 @@ export const tokenStore = {
   // Returns new access token if refresh succeeded, null otherwise
   async refresh(): Promise<string | null> {
     if (!_refresh) return null
-    try {
-      const tokens = await authApi.refresh(_refresh)
-      tokenStore.set(tokens.accessToken, tokens.refreshToken)
-      return tokens.accessToken
-    } catch {
-      tokenStore.clear()
-      return null
-    }
+    if (_inFlight) return _inFlight
+
+    const token = _refresh
+    _inFlight = (async () => {
+      try {
+        const tokens = await authApi.refresh(token)
+        tokenStore.set(tokens.accessToken, tokens.refreshToken)
+        return tokens.accessToken
+      } catch {
+        tokenStore.clear()
+        return null
+      } finally {
+        _inFlight = null
+      }
+    })()
+
+    return _inFlight
   },
 
   isLoggedIn(): boolean {
@@ -64,8 +82,8 @@ export const tokenStore = {
 // ─── Auth actions (use these from screens) ────────────────────────────────────
 
 export interface AuthUser {
-  id:           string
-  username:     string
+  id: string
+  username: string
   uniqueUserId: string
   profilePicUrl: string | null
 }
@@ -78,10 +96,10 @@ export async function login(mobileNumber: string, password: string): Promise<Aut
 
 export async function signup(data: {
   mobileNumber: string
-  password:     string
-  username:     string
-  firstName:    string
-  lastName:     string
+  password: string
+  username: string
+  firstName: string
+  lastName: string
 }): Promise<AuthUser> {
   const result = await authApi.signup(data)
   tokenStore.set(result.accessToken, result.refreshToken)

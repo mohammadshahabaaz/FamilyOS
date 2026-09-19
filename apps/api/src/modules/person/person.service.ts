@@ -30,13 +30,14 @@ export const personService = {
   async createPerson(userId: string, treeId: string, input: CreatePersonInput) {
     await assertMember(userId, treeId)
     return personRepository.create({
-      familyTreeId:  treeId,
-      createdById:   userId,
-      firstName:     input.firstName,
-      lastName:      input.lastName,
-      gender:        input.gender,
-      dateOfBirth:   input.dateOfBirth ? new Date(input.dateOfBirth) : null,
-      isDeceased:    input.isDeceased ?? false,
+      familyTreeId: treeId,
+      createdById: userId,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      gender: input.gender,
+      dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
+      dateOfDeath: input.dateOfDeath ? new Date(input.dateOfDeath) : null,
+      isDeceased: input.isDeceased ?? false,
       profilePicUrl: input.profilePicUrl ?? null,
     })
   },
@@ -46,7 +47,8 @@ export const personService = {
     await assertPersonInTree(personId, treeId)
     return personRepository.update(personId, {
       ...input,
-      dateOfBirth: input.dateOfBirth !== undefined ? new Date(input.dateOfBirth!) : undefined,
+      dateOfBirth: input.dateOfBirth !== undefined ? new Date(input.dateOfBirth) : undefined,
+      dateOfDeath: input.dateOfDeath !== undefined ? new Date(input.dateOfDeath) : undefined,
     })
   },
 
@@ -72,12 +74,22 @@ export const personService = {
     await assertMember(userId, treeId)
     await assertPersonInTree(input.fromPersonId, treeId)
     await assertPersonInTree(input.toPersonId, treeId)
-    return personRepository.createEdge(treeId, input.fromPersonId, input.toPersonId, input.relationType)
+    return personRepository.createEdge(
+      treeId,
+      input.fromPersonId,
+      input.toPersonId,
+      input.relationType,
+    )
   },
 
   async removeEdge(userId: string, treeId: string, input: CreateEdgeInput) {
     await assertMember(userId, treeId)
-    return personRepository.deleteEdge(treeId, input.fromPersonId, input.toPersonId, input.relationType)
+    return personRepository.deleteEdge(
+      treeId,
+      input.fromPersonId,
+      input.toPersonId,
+      input.relationType,
+    )
   },
 
   async listEdges(userId: string, treeId: string) {
@@ -94,18 +106,16 @@ export const personService = {
       personRepository.listEdges(treeId),
     ])
 
-    const genderMap = new Map(
-      persons.map(p => [p.id, p.gender as 'MALE' | 'FEMALE' | 'OTHER']),
-    )
-    const allIds = persons.map(p => p.id)
+    const genderMap = new Map(persons.map((p) => [p.id, p.gender]))
+    const allIds = persons.map((p) => p.id)
     const relMap = computeAllRelationships(personId, allIds, edges, genderMap)
 
     return persons
-      .filter(p => p.id !== personId)
-      .map(p => {
+      .filter((p) => p.id !== personId)
+      .map((p) => {
         const rel = relMap.get(p.id) ?? { label: 'Not related', path: '' }
         return { person: p, relationship: rel.label }
       })
-      .filter(r => r.relationship !== 'Not related')
+      .filter((r) => r.relationship !== 'Not related')
   },
 }

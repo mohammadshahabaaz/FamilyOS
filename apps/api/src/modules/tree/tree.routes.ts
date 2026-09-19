@@ -19,8 +19,7 @@ const treeRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get<{ Params: { treeId: string; personId: string } }>(
     '/:treeId/persons/:personId/relatives',
-    async (req) =>
-      treeService.getRelatives(req.params.treeId, req.params.personId),
+    async (req) => treeService.getRelatives(req.params.treeId, req.params.personId),
   )
 
   fastify.get<{ Params: { treeId: string } }>('/:treeId/events', async (req) => {

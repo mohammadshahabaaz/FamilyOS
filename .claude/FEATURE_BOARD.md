@@ -3,6 +3,26 @@ _Audit date: 2026-06-20 | Round 4 complete. Round 5 = Profile + Relationship Ide
 
 ---
 
+## Round 6 — Candidates from `/discover` (code-audit, not this doc)
+_Audit date: 2026-07-17 | Source: `product-manager` agent, grounded in actual code state — see `docs/AGENT_SYSTEM_GUIDE.md` for why this doc alone had gone stale._
+
+| ID | Feature | Founder Rule | Reach/Impact | Effort | Status |
+|---|---|---|---|---|---|
+| R6-01 | Fix photo-upload race in CreateEventScreen (`handleSave` fires `uploadPhotos().catch(()=>{})` unawaited, navigates before it resolves) | PASS | All / High — core loop broken | S/M | ✅ Shipped |
+| R6-02 | "On this day" Feed card (reuse `memory-recall.job.ts` query, new GET route + FeedScreen card) | PASS | All, daily / High | M | ✅ Shipped |
+| R6-03 | Deep-link notifications to the specific EventDetailModal instead of the generic Timeline tab | PASS | All / Med | S | ✅ Shipped |
+| R6-04 | TreeLink invite/request/approve mobile UI (backend has 5 routes, zero mobile consumer) | CHALLENGE — invite/approve PASS, but any cross-tree *read* hits the unresolved open question in `CLAUDE.md` | Subset (admins, in-laws) / High | M/L | Proposed — needs `/debate` on the open question first |
+| R6-05 | Profile-linking request flow (self-service "I am this Person" + admin approve; `ProfileRequest` model exists, no route uses it) | PASS | Every new member, once / High | M | ✅ Shipped |
+| R6-06 | Story-post notification fan-out (stories currently notify nobody) | PASS | All / Med | S | ✅ Shipped |
+| R6-07 | Top-level ErrorBoundary (none exists — any thrown error white-screens the app) | PASS | All, on crash / Med-High | S | Proposed |
+| R6-08 | Tests for Phase 2 modules (story, tree-link, notification, push-token, memory-recall, story-expiry — currently zero coverage) | PASS | n/a (protects all) / Med | M | ✅ Shipped |
+| R6-09 | Dedicated In-Memoriam tribute screen (today: grayscale filter only) | PASS | Kin of deceased / Med-High | M | ✅ Shipped |
+| R6-10 | Video memory support end-to-end (Media enum has VIDEO; upload/thumbnail path hardcoded to PHOTO/jpeg) | PASS | All / Med | L | ✅ Shipped |
+
+**Dropped at discovery time:** a story "who viewed this" read-receipt list — flagged as a social-engagement mechanic, not identity/hierarchy/memory, rejected outright rather than listed here.
+
+---
+
 ## Round 5 — In Progress / Shipped
 
 | ID | Feature | Layer | Status |

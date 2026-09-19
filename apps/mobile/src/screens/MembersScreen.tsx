@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react'
-import { ScrollView, View, Text, Image, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native'
+import {
+  ScrollView,
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+} from 'react-native'
 import type { Person, FamilyEvent, Relative } from '../lib/types'
 import { EVENT_GRADIENT, getFamilyCircle, FAMILY_CIRCLE_LABELS } from '../lib/types'
 import type { FamilyCircle } from '../lib/types'
@@ -7,7 +15,7 @@ import type { Screen } from '../../App'
 import { C } from '../lib/theme'
 
 type FilterTab = FamilyCircle | 'all'
-const CIRCLE_TABS: FilterTab[] = ['all', 'close', 'dadiyal', 'naniyal', 'internal', 'extended']
+const CIRCLE_TABS: FilterTab[] = ['all', 'close', 'paternal', 'maternal', 'internal', 'extended']
 
 interface Props {
   persons: Person[]
@@ -20,7 +28,16 @@ interface Props {
   myRelatives?: Relative[]
 }
 
-export default function MembersScreen({ persons, treeId, events, navigateTo, refreshing = false, onRefresh, myPersonId, myRelatives = [] }: Props) {
+export default function MembersScreen({
+  persons,
+  treeId,
+  events,
+  navigateTo,
+  refreshing = false,
+  onRefresh,
+  myPersonId,
+  myRelatives = [],
+}: Props) {
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
 
   const relMap = useMemo(() => {
@@ -44,8 +61,8 @@ export default function MembersScreen({ persons, treeId, events, navigateTo, ref
     return circleMap[p.id] === activeTab
   }
 
-  const living   = persons.filter(p => !p.isDeceased && filterPerson(p))
-  const deceased = persons.filter(p =>  p.isDeceased && filterPerson(p))
+  const living = persons.filter((p) => !p.isDeceased && filterPerson(p))
+  const deceased = persons.filter((p) => p.isDeceased && filterPerson(p))
 
   return (
     <View style={styles.root}>
@@ -64,8 +81,12 @@ export default function MembersScreen({ persons, treeId, events, navigateTo, ref
 
       {/* Family circle filter tabs */}
       <View style={styles.tabsWrap}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
-          {CIRCLE_TABS.map(tab => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsContent}
+        >
+          {CIRCLE_TABS.map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -83,7 +104,9 @@ export default function MembersScreen({ persons, treeId, events, navigateTo, ref
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
+        refreshControl={
+          onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
+        }
       >
         {living.length > 0 && (
           <View style={styles.section}>
@@ -91,8 +114,14 @@ export default function MembersScreen({ persons, treeId, events, navigateTo, ref
               {activeTab === 'all' ? 'Living' : FAMILY_CIRCLE_LABELS[activeTab]}
             </Text>
             <View style={styles.grid}>
-              {living.map(person => (
-                <PersonTile key={person.id} person={person} events={events} navigateTo={navigateTo} relLabel={relMap[person.id]} />
+              {living.map((person) => (
+                <PersonTile
+                  key={person.id}
+                  person={person}
+                  events={events}
+                  navigateTo={navigateTo}
+                  relLabel={relMap[person.id]}
+                />
               ))}
             </View>
           </View>
@@ -102,7 +131,7 @@ export default function MembersScreen({ persons, treeId, events, navigateTo, ref
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>In Memoriam</Text>
             <View style={styles.grid}>
-              {deceased.map(person => (
+              {deceased.map((person) => (
                 <PersonTile
                   key={person.id}
                   person={person}
@@ -143,7 +172,7 @@ function PersonTile({
   grayscale?: boolean
   relLabel?: string
 }) {
-  const taggedEvents = events.filter(e => e.taggedPersons.some(p => p.id === person.id))
+  const taggedEvents = events.filter((e) => e.taggedPersons.some((p) => p.id === person.id))
   const colors = EVENT_GRADIENT[taggedEvents[0]?.type ?? 'CUSTOM'] ?? EVENT_GRADIENT.CUSTOM
 
   return (
@@ -156,19 +185,30 @@ function PersonTile({
         {person.profilePicUrl ? (
           <Image
             source={{ uri: person.profilePicUrl }}
-            style={[styles.tileImg, grayscale && styles.tileImgGray, {
-              // @ts-ignore — keep faces in frame
-              objectPosition: 'center top',
-            }]}
+            style={[
+              styles.tileImg,
+              grayscale && styles.tileImgGray,
+              {
+                // @ts-ignore — keep faces in frame
+                objectPosition: 'center top',
+              },
+            ]}
             resizeMode="cover"
           />
         ) : (
-          <View style={[styles.tileImg, styles.tileImgFallback, {
-            // @ts-ignore
-            background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
-          }]}>
+          <View
+            style={[
+              styles.tileImg,
+              styles.tileImgFallback,
+              {
+                // @ts-ignore
+                background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
+              },
+            ]}
+          >
             <Text style={styles.tileInitials}>
-              {person.firstName?.[0] ?? '?'}{person.lastName?.[0] ?? ''}
+              {person.firstName?.[0] ?? '?'}
+              {person.lastName?.[0] ?? ''}
             </Text>
           </View>
         )}
@@ -185,7 +225,10 @@ function PersonTile({
         </Text>
         {relLabel ? (
           <View style={[styles.relPill, relLabel === 'You' && styles.relPillSelf]}>
-            <Text style={[styles.relPillText, relLabel === 'You' && styles.relPillTextSelf]} numberOfLines={1}>
+            <Text
+              style={[styles.relPillText, relLabel === 'You' && styles.relPillTextSelf]}
+              numberOfLines={1}
+            >
               {relLabel}
             </Text>
           </View>
@@ -216,8 +259,11 @@ const styles = StyleSheet.create({
   },
   count: { fontSize: 12, fontWeight: '600', color: C.textSecondary, letterSpacing: 0.3 },
   addBtn: {
-    backgroundColor: C.accent, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center',
+    backgroundColor: C.accent,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: 'center',
     // @ts-ignore
     cursor: 'pointer',
   },
@@ -225,12 +271,16 @@ const styles = StyleSheet.create({
 
   tabsWrap: {
     backgroundColor: C.surface,
-    borderBottomWidth: 1.5, borderBottomColor: C.border,
+    borderBottomWidth: 1.5,
+    borderBottomColor: C.border,
   },
   tabsContent: { paddingHorizontal: 10, paddingVertical: 8, gap: 6 },
   tab: {
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1.5, borderColor: C.border,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: C.border,
     backgroundColor: C.bg,
   },
   tabActive: { backgroundColor: C.accent, borderColor: C.accent },
@@ -320,8 +370,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: C.accentBg,
     borderRadius: 10,
-    paddingHorizontal: 6, paddingVertical: 2,
-    borderWidth: 1, borderColor: C.accentSoft,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: C.accentSoft,
   },
   relPillSelf: { backgroundColor: C.accent, borderColor: C.accent },
   relPillText: { fontSize: 10, fontWeight: '700', color: C.accent },

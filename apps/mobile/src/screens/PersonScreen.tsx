@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react'
 import {
-  ScrollView, View, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet,
+  ScrollView,
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
 } from 'react-native'
 import type { Person, FamilyEvent, Relative } from '../lib/types'
 import { EVENT_GRADIENT, EVENT_LABEL, birthYear } from '../lib/types'
 import { personApi } from '../lib/api'
 import type { Screen } from '../../App'
 import { C, F, shadow } from '../lib/theme'
+import EventDetailModal from '../components/EventDetailModal'
 
 interface Props {
   personId: string
@@ -19,12 +26,22 @@ interface Props {
   myRelatives?: Relative[]
 }
 
-export default function PersonScreen({ personId, treeId, persons, events, navigateTo, from = 'members', myPersonId, myRelatives = [] }: Props) {
+export default function PersonScreen({
+  personId,
+  treeId,
+  persons,
+  events,
+  navigateTo,
+  from = 'members',
+  myPersonId,
+  myRelatives = [],
+}: Props) {
   const [relatives, setRelatives] = useState<Relative[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedEvent, setSelectedEvent] = useState<FamilyEvent | null>(null)
 
-  const person = persons.find(p => p.id === personId)
-  const myEvents = events.filter(e => e.taggedPersons.some(p => p.id === personId))
+  const person = persons.find((p) => p.id === personId)
+  const myEvents = events.filter((e) => e.taggedPersons.some((p) => p.id === personId))
   const memoriesCount = myEvents.reduce((n, e) => n + e.media.length, 0)
 
   const handle = person?.linkedUser?.username
@@ -35,16 +52,18 @@ export default function PersonScreen({ personId, treeId, persons, events, naviga
 
   useEffect(() => {
     setLoading(true)
-    personApi.relatives(treeId, personId)
+    personApi
+      .relatives(treeId, personId)
       .then(setRelatives)
       .catch(() => setRelatives([]))
       .finally(() => setLoading(false))
   }, [personId, treeId])
 
   // Derive relationship label from the pre-fetched myRelatives (no extra API call)
-  const myRelLabel = myPersonId === personId
-    ? 'You'
-    : myRelatives.find(r => r.person.id === personId)?.relationship ?? null
+  const myRelLabel =
+    myPersonId === personId
+      ? 'You'
+      : (myRelatives.find((r) => r.person.id === personId)?.relationship ?? null)
 
   if (!person) {
     return (
@@ -69,7 +88,8 @@ export default function PersonScreen({ personId, treeId, persons, events, naviga
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback]}>
                     <Text style={styles.avatarInitial}>
-                      {person.firstName?.[0] ?? '?'}{person.lastName?.[0] ?? ''}
+                      {person.firstName?.[0] ?? '?'}
+                      {person.lastName?.[0] ?? ''}
                     </Text>
                   </View>
                 )}
@@ -87,24 +107,20 @@ export default function PersonScreen({ personId, treeId, persons, events, naviga
           {/* Name, bio, status */}
           <View style={styles.bio}>
             <View style={styles.bioNameRow}>
-              <Text style={styles.fullName}>{person.firstName} {person.lastName}</Text>
+              <Text style={styles.fullName}>
+                {person.firstName} {person.lastName}
+              </Text>
               {myRelLabel && (
-                <View style={[
-                  styles.relBadge,
-                  myRelLabel === 'You' && styles.relBadgeSelf,
-                ]}>
-                  <Text style={[
-                    styles.relBadgeText,
-                    myRelLabel === 'You' && styles.relBadgeTextSelf,
-                  ]}>
+                <View style={[styles.relBadge, myRelLabel === 'You' && styles.relBadgeSelf]}>
+                  <Text
+                    style={[styles.relBadgeText, myRelLabel === 'You' && styles.relBadgeTextSelf]}
+                  >
                     {myRelLabel === 'You' ? 'You' : `Your ${myRelLabel}`}
                   </Text>
                 </View>
               )}
             </View>
-            {person.isDeceased ? (
-              <Text style={styles.bioLine}>† In Memoriam{birthYear(person.dateOfBirth) ? ` · ${birthYear(person.dateOfBirth)}` : ''}</Text>
-            ) : person.dateOfBirth ? (
+            {person.dateOfBirth ? (
               <Text style={styles.bioLine}>Born {birthYear(person.dateOfBirth)}</Text>
             ) : (
               <Text style={styles.bioLine}>Family member</Text>
@@ -121,9 +137,7 @@ export default function PersonScreen({ personId, treeId, persons, events, naviga
               activeOpacity={0.8}
               onPress={() => navigateTo({ name: 'members' })}
             >
-              <Text style={styles.btnPrimaryText}>
-                {person.isDeceased ? 'In Memoriam' : 'Family'}
-              </Text>
+              <Text style={styles.btnPrimaryText}>Family</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.btnSecondary}
@@ -143,7 +157,7 @@ export default function PersonScreen({ personId, treeId, persons, events, naviga
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.highlightsContent}
             >
-              {relatives.slice(0, 8).map(r => (
+              {relatives.slice(0, 8).map((r) => (
                 <TouchableOpacity
                   key={r.person.id}
                   style={styles.highlight}
@@ -153,10 +167,15 @@ export default function PersonScreen({ personId, treeId, persons, events, naviga
                   <View style={styles.highlightRing}>
                     <View style={styles.highlightInner}>
                       {r.person.profilePicUrl ? (
-                        <Image source={{ uri: r.person.profilePicUrl }} style={styles.highlightImg} />
+                        <Image
+                          source={{ uri: r.person.profilePicUrl }}
+                          style={styles.highlightImg}
+                        />
                       ) : (
                         <View style={[styles.highlightImg, styles.highlightFallback]}>
-                          <Text style={styles.highlightInitial}>{r.person.firstName?.[0] ?? '?'}</Text>
+                          <Text style={styles.highlightInitial}>
+                            {r.person.firstName?.[0] ?? '?'}
+                          </Text>
                         </View>
                       )}
                     </View>
@@ -189,14 +208,26 @@ export default function PersonScreen({ personId, treeId, persons, events, naviga
           </View>
         ) : (
           <View style={styles.grid}>
-            {myEvents.map(event => (
-              <EventGridTile key={event.id} event={event} onPress={() => navigateTo({ name: 'events' })} />
+            {myEvents.map((event) => (
+              <EventGridTile key={event.id} event={event} onPress={() => setSelectedEvent(event)} />
             ))}
           </View>
         )}
 
         <View style={styles.bottomPad} />
       </ScrollView>
+
+      {selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          treeId={treeId}
+          visible={!!selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          navigateTo={navigateTo}
+          myRelatives={myRelatives}
+          myPersonId={myPersonId}
+        />
+      )}
     </View>
   )
 }
@@ -217,12 +248,22 @@ function EventGridTile({ event, onPress }: { event: FamilyEvent; onPress?: () =>
   return (
     <TouchableOpacity style={tileStyles.cell} onPress={onPress} activeOpacity={0.85}>
       {hasMedia ? (
-        <Image source={{ uri: event.media[0].thumbnail }} style={tileStyles.img} resizeMode="cover" />
+        <Image
+          source={{ uri: event.media[0].thumbnail }}
+          style={tileStyles.img}
+          resizeMode="cover"
+        />
       ) : (
-        <View style={[tileStyles.img, tileStyles.banner, {
-          // @ts-ignore
-          background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
-        }]}>
+        <View
+          style={[
+            tileStyles.img,
+            tileStyles.banner,
+            {
+              // @ts-ignore
+              background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
+            },
+          ]}
+        >
           <Text style={tileStyles.bannerType}>{EVENT_LABEL[event.type]?.[0] ?? '?'}</Text>
         </View>
       )}
@@ -287,18 +328,26 @@ const styles = StyleSheet.create({
 
   bio: { marginBottom: 12 },
   bioNameRow: {
-    flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 2,
   },
   fullName: {
-    fontSize: 16, fontWeight: '800', color: C.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
+    color: C.textPrimary,
     // @ts-ignore
     fontFamily: F.serif,
   },
   relBadge: {
     backgroundColor: C.accentBg,
     borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 3,
-    borderWidth: 1, borderColor: C.accentSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: C.accentSoft,
   },
   relBadgeSelf: {
     backgroundColor: C.accent,

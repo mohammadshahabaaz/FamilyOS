@@ -1,37 +1,48 @@
 import React, { useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, KeyboardAvoidingView,
-  Platform, ScrollView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native'
 import { signup } from '../lib/auth'
 import { ApiError } from '../lib/api'
 import type { AuthUser } from '../lib/auth'
+import { C, F } from '../lib/theme'
 
 interface Props {
   onSignup: (user: AuthUser) => void
-  onLogin:  () => void
+  onLogin: () => void
 }
 
 export default function SignupScreen({ onSignup, onLogin }: Props) {
   const [form, setForm] = useState({
-    firstName:    '',
-    lastName:     '',
-    username:     '',
+    firstName: '',
+    lastName: '',
+    username: '',
     mobileNumber: '',
-    password:     '',
-    confirmPwd:   '',
+    password: '',
+    confirmPwd: '',
   })
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [focused,  setFocused]  = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [focused, setFocused] = useState<string | null>(null)
 
   function update(key: keyof typeof form) {
     return (val: string) => setForm((f) => ({ ...f, [key]: val }))
   }
 
-  function focus(key: string) { return () => setFocused(key) }
-  function blur() { setFocused(null) }
+  function focus(key: string) {
+    return () => setFocused(key)
+  }
+  function blur() {
+    setFocused(null)
+  }
 
   async function handleSignup() {
     const { firstName, lastName, username, mobileNumber, password, confirmPwd } = form
@@ -54,7 +65,13 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
     setError(null)
     setLoading(true)
     try {
-      const user = await signup({ firstName, lastName, username, mobileNumber: mobileNumber.trim(), password })
+      const user = await signup({
+        firstName,
+        lastName,
+        username,
+        mobileNumber: mobileNumber.trim(),
+        password,
+      })
       onSignup(user)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Signup failed. Please try again.')
@@ -97,7 +114,7 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
               <TextInput
                 style={inp('firstName')}
                 placeholder="Tariq"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textSecondary}
                 value={form.firstName}
                 onChangeText={update('firstName')}
                 onFocus={focus('firstName')}
@@ -110,7 +127,7 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
               <TextInput
                 style={inp('lastName')}
                 placeholder="Khan"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textSecondary}
                 value={form.lastName}
                 onChangeText={update('lastName')}
                 onFocus={focus('lastName')}
@@ -126,7 +143,7 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
             <TextInput
               style={[styles.input, styles.inputWithPrefix]}
               placeholder="tariq_khan"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.textSecondary}
               autoCapitalize="none"
               autoCorrect={false}
               value={form.username}
@@ -140,7 +157,7 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
           <TextInput
             style={inp('mobile')}
             placeholder="+91 98765 43210"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.textSecondary}
             keyboardType="phone-pad"
             autoComplete="tel"
             value={form.mobileNumber}
@@ -153,7 +170,7 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
           <TextInput
             style={inp('password')}
             placeholder="Min 8 characters"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.textSecondary}
             secureTextEntry
             value={form.password}
             onChangeText={update('password')}
@@ -165,7 +182,7 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
           <TextInput
             style={inp('confirm')}
             placeholder="Re-enter password"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.textSecondary}
             secureTextEntry
             value={form.confirmPwd}
             onChangeText={update('confirmPwd')}
@@ -181,10 +198,11 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
             disabled={loading}
             activeOpacity={0.85}
           >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnText}>Create account</Text>
-            }
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Create account</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.loginLink} onPress={onLogin} activeOpacity={0.7}>
@@ -200,7 +218,7 @@ export default function SignupScreen({ onSignup, onLogin }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8F8F8' },
+  root: { flex: 1, backgroundColor: C.bg },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -211,7 +229,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.surface,
     borderRadius: 16,
     padding: 32,
     // @ts-ignore
@@ -219,64 +237,92 @@ const styles = StyleSheet.create({
   },
   logoWrap: { alignItems: 'center', marginBottom: 12 },
   logoBadge: {
-    width: 56, height: 56, borderRadius: 16,
-    backgroundColor: '#111827',
-    alignItems: 'center', justifyContent: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: C.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
     // @ts-ignore
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
   },
   logoBadgeText: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
   logo: {
     // @ts-ignore
-    fontFamily: 'Georgia, serif',
-    fontSize: 28, fontWeight: '700', color: '#111827',
-    textAlign: 'center', marginBottom: 4,
+    fontFamily: F.serif,
+    fontSize: 28,
+    fontWeight: '700',
+    color: C.textPrimary,
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24 },
+  subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24 },
 
   errorBanner: {
-    backgroundColor: '#FEF2F2', borderRadius: 10,
-    borderWidth: 1, borderColor: '#FECACA',
-    padding: 12, marginBottom: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    padding: 12,
+    marginBottom: 16,
   },
-  errorBannerText: { color: '#B91C1C', fontSize: 13, textAlign: 'center' },
+  errorBannerText: { color: C.danger, fontSize: 13, textAlign: 'center' },
 
   row: { flexDirection: 'row', gap: 12 },
   half: { flex: 1 },
 
   label: {
-    fontSize: 12, fontWeight: '700', color: '#374151',
-    marginBottom: 6, marginTop: 14, letterSpacing: 0.3,
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.textSecondary,
+    marginBottom: 6,
+    marginTop: 14,
+    letterSpacing: 0.3,
     // @ts-ignore
     textTransform: 'uppercase',
   },
   input: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, color: '#111827', backgroundColor: '#FAFAFA',
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: C.textPrimary,
+    backgroundColor: C.surfaceEl,
     // @ts-ignore
     outlineStyle: 'none',
     transition: 'border-color 0.15s',
   },
-  inputFocused: { borderColor: '#111827', backgroundColor: '#FFFFFF' },
+  inputFocused: { borderColor: C.accent, backgroundColor: C.surface },
   inputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
-    backgroundColor: '#FAFAFA', overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 10,
+    backgroundColor: C.surfaceEl,
+    overflow: 'hidden',
     // @ts-ignore
     transition: 'border-color 0.15s',
   },
-  inputRowFocused: { borderColor: '#111827', backgroundColor: '#FFFFFF' },
-  inputPrefix: { paddingLeft: 14, fontSize: 16, color: '#6B7280', fontWeight: '500' },
+  inputRowFocused: { borderColor: C.accent, backgroundColor: C.surface },
+  inputPrefix: { paddingLeft: 14, fontSize: 16, color: C.textSecondary, fontWeight: '500' },
   inputWithPrefix: {
-    flex: 1, borderWidth: 0, backgroundColor: 'transparent', paddingLeft: 4,
+    flex: 1,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    paddingLeft: 4,
     // @ts-ignore
     outlineStyle: 'none',
   },
 
   btn: {
-    backgroundColor: '#111827', borderRadius: 10,
-    paddingVertical: 14, alignItems: 'center', marginTop: 24,
+    backgroundColor: C.accent,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 24,
     // @ts-ignore
     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
   },
@@ -284,6 +330,6 @@ const styles = StyleSheet.create({
   btnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
 
   loginLink: { marginTop: 20, alignItems: 'center' },
-  loginText: { fontSize: 14, color: '#6B7280' },
-  loginBold: { color: '#111827', fontWeight: '700' },
+  loginText: { fontSize: 14, color: C.textSecondary },
+  loginBold: { color: C.accent, fontWeight: '700' },
 })

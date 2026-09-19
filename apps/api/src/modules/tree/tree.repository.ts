@@ -4,8 +4,12 @@ export const treeRepository = {
   listTrees() {
     return db.familyTree.findMany({
       select: {
-        id: true, name: true, rootPersonId: true, timezone: true,
-        createdAt: true, updatedAt: true,
+        id: true,
+        name: true,
+        rootPersonId: true,
+        timezone: true,
+        createdAt: true,
+        updatedAt: true,
         _count: { select: { persons: true, members: true, events: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -16,8 +20,12 @@ export const treeRepository = {
     return db.familyTree.findUniqueOrThrow({
       where: { id: treeId },
       select: {
-        id: true, name: true, rootPersonId: true, timezone: true,
-        createdAt: true, updatedAt: true,
+        id: true,
+        name: true,
+        rootPersonId: true,
+        timezone: true,
+        createdAt: true,
+        updatedAt: true,
         members: {
           include: { user: { select: { id: true, username: true, profilePicUrl: true } } },
         },
@@ -72,7 +80,13 @@ export const treeRepository = {
         taggedPersons: {
           include: {
             person: {
-              select: { id: true, firstName: true, lastName: true, profilePicUrl: true, gender: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                profilePicUrl: true,
+                gender: true,
+              },
             },
           },
         },

@@ -32,6 +32,7 @@ model User {
   notifications    Notification[]
   storyViews       StoryView[]
   treeLinksRequested TreeLink[]     @relation("TreeLinkRequestedBy")
+  pushTokens       PushToken[]
 }
 
 // ─── Family Tree & Tree Nodes ─────────────────────────────────────────────────
@@ -66,6 +67,7 @@ model Person {
   profilePicUrl String?
   gender        Gender
   dateOfBirth   DateTime?
+  dateOfDeath   DateTime?
   isDeceased    Boolean   @default(false)
   createdById   String
   createdAt     DateTime  @default(now())
@@ -102,6 +104,7 @@ model RelationshipEdge {
   @@index([fromPersonId])
   @@index([toPersonId])
   @@index([treeId])
+  @@index([treeId, fromPersonId])
 }
 
 model FamilyMember {
@@ -127,6 +130,7 @@ model ProfileRequest {
   lastName                    String
   mobileNumber                String
   profilePicUrl               String?
+  gender                      Gender
   claimedRelationType         RelationType
   claimedRelatedToPersonId    String
   branchLabel                 BranchLabel
@@ -159,6 +163,7 @@ model TreeLink {
   requestedById          String
   approvedByTreeAAdminId String?
   approvedByTreeBAdminId String?
+  rejectedById           String?
   createdAt              DateTime       @default(now())
 
   treeA       FamilyTree @relation("TreeLinkA", fields: [treeAId], references: [id])
@@ -297,6 +302,7 @@ model Notification {
   relatedEventId          String?
   relatedProfileRequestId String?
   relatedTreeLinkId       String?
+  relatedStoryId          String?
   sentAt                  DateTime         @default(now())
   openedAt                DateTime?
 
@@ -376,6 +382,7 @@ enum TreeLinkType {
 enum TreeLinkStatus {
   PENDING
   APPROVED
+  REJECTED
 }
 
 enum NotificationType {
@@ -384,4 +391,18 @@ enum NotificationType {
   REQUEST_APPROVED
   REQUEST_REJECTED
   TREE_LINK_REQUEST
+  EVENT_CREATED
+  STORY_CREATED
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String   // 'ios' | 'android' | 'web'
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

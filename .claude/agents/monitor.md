@@ -60,7 +60,7 @@ docker exec familytree-postgres-1 psql -U postgres -d familyos -c "\dt" | grep -
 
 ```bash
 cd apps/api && npm test 2>&1 | tail -10
-# Expected: "56 passed" — if any fail, report which ones
+# Expected: "116 passed" — if any fail, report which ones
 ```
 
 ### 5. Mobile App Layer
@@ -101,7 +101,7 @@ Expected: non-empty arrays, no 5xx errors.
 | API response time | < 200ms | 200–500ms | > 500ms |
 | Postgres connection | instant | < 1s | > 3s or refused |
 | Redis connection | instant | < 500ms | > 1s or refused |
-| Test suite | 56 passing | < 56 passing | any error |
+| Test suite | 116 passing | < 116 passing | any error |
 | Mobile bundle | HTTP 200 | — | connection refused |
 
 ## What to Report
@@ -118,7 +118,7 @@ Always produce a health report in this format:
 | API /health | ✓ OK / ✗ FAIL | response time |
 | Auth (401 check) | ✓ OK / ✗ FAIL | ... |
 | Database (tables) | ✓ OK / ✗ FAIL | ... |
-| Test suite | ✓ 56/56 / ✗ N/56 | failing test names |
+| Test suite | ✓ 116/116 / ✗ N/116 | failing test names |
 | Mobile (HTTP 200) | ✓ OK / ✗ FAIL | ... |
 
 ## Overall: HEALTHY / DEGRADED / DOWN

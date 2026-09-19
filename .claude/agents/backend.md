@@ -101,7 +101,7 @@ fastify.post('/api/trees/:treeId/events', {
 ## Testing
 
 - Framework: Vitest
-- All 56 tests must pass before and after any change: `npm test`
+- All 116 tests must pass before and after any change: `npm test`
 - Auth tests: `src/modules/auth/auth.service.test.ts` (14 cases)
 - Event tests: `src/modules/event/event.service.test.ts` (11 cases)
 - Engine tests: `src/modules/relationship/relationship.engine.test.ts` (31 cases)
@@ -117,7 +117,7 @@ Tested edge cases (already fixed — don't regress):
 
 For every task:
 1. Edit the specific file(s)
-2. `npm test` — all 56 tests still passing
+2. `npm test` — all 116 tests still passing
 3. `npx tsc --noEmit` in `apps/api/` — zero errors
 4. Curl the endpoint to show it works
 5. List any new Zod schemas added to `packages/shared/`

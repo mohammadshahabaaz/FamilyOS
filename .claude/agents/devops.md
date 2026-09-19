@@ -127,7 +127,7 @@ When `prisma/schema.prisma` changes:
 cd apps/api
 npx prisma db push          # sync to postgres
 npm run db:seed             # reseed demo data
-npm test                    # verify 56 tests still pass
+npm test                    # verify 116 tests still pass
 ```
 
 **Never use `prisma migrate dev`** — requires interactive TTY, breaks in scripts.

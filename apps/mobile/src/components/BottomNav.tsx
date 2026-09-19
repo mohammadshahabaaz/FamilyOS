@@ -4,21 +4,27 @@ import type { AuthUser } from '../lib/auth'
 import type { Person } from '../lib/types'
 
 interface Props {
-  screen:        Screen
-  navigateTo:    (s: Screen) => void
+  screen: Screen
+  navigateTo: (s: Screen) => void
   onCreateEvent: () => void
-  authUser:      AuthUser | null
-  persons:       Person[]
+  authUser: AuthUser | null
+  persons: Person[]
 }
 
 export default function BottomNav({ screen, navigateTo, onCreateEvent, authUser, persons }: Props) {
-  const active = screen.name === 'person'
-    ? (screen.from ?? 'members')
-    : screen.name === 'createEvent' ? '' : screen.name
+  const active =
+    screen.name === 'person'
+      ? (screen.from ?? 'members')
+      : screen.name === 'createEvent'
+        ? ''
+        : screen.name
 
   function handleProfile() {
-    if (!authUser) { navigateTo({ name: 'feed' }); return }
-    const linked = persons.find(p => p.linkedUserId === authUser.id)
+    if (!authUser) {
+      navigateTo({ name: 'feed' })
+      return
+    }
+    const linked = persons.find((p) => p.linkedUserId === authUser.id)
     if (linked) {
       navigateTo({ name: 'person', personId: linked.id })
     } else {
@@ -26,14 +32,24 @@ export default function BottomNav({ screen, navigateTo, onCreateEvent, authUser,
     }
   }
 
-  const isProfileActive = screen.name === 'person' && persons.some(
-    p => p.linkedUserId === authUser?.id && (screen as any).personId === p.id
-  )
+  const isProfileActive =
+    screen.name === 'person' &&
+    persons.some((p) => p.linkedUserId === authUser?.id && (screen as any).personId === p.id)
 
   return (
     <View style={styles.nav}>
-      <Tab icon="◎" label="Feed"     isActive={active === 'feed'}    onPress={() => navigateTo({ name: 'feed' })} />
-      <Tab icon="⊞" label="People"   isActive={active === 'members'} onPress={() => navigateTo({ name: 'members' })} />
+      <Tab
+        icon="◎"
+        label="Feed"
+        isActive={active === 'feed'}
+        onPress={() => navigateTo({ name: 'feed' })}
+      />
+      <Tab
+        icon="⊞"
+        label="People"
+        isActive={active === 'members'}
+        onPress={() => navigateTo({ name: 'members' })}
+      />
 
       <TouchableOpacity style={styles.plusWrap} onPress={onCreateEvent} activeOpacity={0.85}>
         <View style={styles.plusBtn}>
@@ -41,15 +57,28 @@ export default function BottomNav({ screen, navigateTo, onCreateEvent, authUser,
         </View>
       </TouchableOpacity>
 
-      <Tab icon="▦" label="Timeline" isActive={active === 'events'}  onPress={() => navigateTo({ name: 'events' })} />
-      <Tab icon="◯" label="Profile"  isActive={isProfileActive}      onPress={handleProfile} />
+      <Tab
+        icon="▦"
+        label="Timeline"
+        isActive={active === 'events'}
+        onPress={() => navigateTo({ name: 'events' })}
+      />
+      <Tab icon="◯" label="Profile" isActive={isProfileActive} onPress={handleProfile} />
     </View>
   )
 }
 
 function Tab({
-  icon, label, isActive, onPress,
-}: { icon: string; label: string; isActive: boolean; onPress: () => void }) {
+  icon,
+  label,
+  isActive,
+  onPress,
+}: {
+  icon: string
+  label: string
+  isActive: boolean
+  onPress: () => void
+}) {
   return (
     <TouchableOpacity style={styles.tab} onPress={onPress} activeOpacity={0.7}>
       {isActive && <View style={styles.activeBar} />}
@@ -104,9 +133,12 @@ const styles = StyleSheet.create({
     cursor: 'pointer',
   },
   plusBtn: {
-    width: 42, height: 42, borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: '#111827',
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
     // @ts-ignore
     boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
   },

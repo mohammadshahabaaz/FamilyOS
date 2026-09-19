@@ -8,48 +8,56 @@ vi.mock('../family/family.repository.js', () => ({
 
 vi.mock('./event.repository.js', () => ({
   eventRepository: {
-    create:              vi.fn(),
-    findById:            vi.fn(),
-    listByTree:          vi.fn(),
-    update:              vi.fn(),
-    delete:              vi.fn(),
+    create: vi.fn(),
+    findById: vi.fn(),
+    listByTree: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
     updateTaggedPersons: vi.fn(),
-    eventBelongsToTree:  vi.fn(),
-    getLike:             vi.fn(),
-    addLike:             vi.fn(),
-    removeLike:          vi.fn(),
-    countLikes:          vi.fn().mockResolvedValue(0),
+    eventBelongsToTree: vi.fn(),
+    getLike: vi.fn(),
+    addLike: vi.fn(),
+    removeLike: vi.fn(),
+    countLikes: vi.fn().mockResolvedValue(0),
     countLikesForEvents: vi.fn().mockResolvedValue(new Map()),
-    getUserLikedSet:     vi.fn().mockResolvedValue(new Set()),
+    getUserLikedSet: vi.fn().mockResolvedValue(new Set()),
   },
 }))
 
+vi.mock('../../lib/queues.js', () => ({
+  notificationFanout: { add: vi.fn() },
+}))
+
 import { familyRepository } from '../family/family.repository.js'
-import { eventRepository }  from './event.repository.js'
-import { eventService }     from './event.service.js'
+import { eventRepository } from './event.repository.js'
+import { notificationFanout } from '../../lib/queues.js'
+import { eventService } from './event.service.js'
 
 const MEMBERSHIP = { userId: 'user-1', treeId: 'tree-1', role: 'MEMBER' }
 
 const BASE_EVENT = {
-  id:            'event-1',
-  type:          'BIRTHDAY',
-  title:         'Tariq Birthday',
-  description:   null,
-  date:          new Date('2024-01-01'),
-  visibility:    'FAMILY',
-  branchLabel:   null,
-  createdAt:     new Date(),
-  createdById:   'user-1',
-  createdBy:     { id: 'user-1', username: 'tariq', profilePicUrl: null },
+  id: 'event-1',
+  type: 'BIRTHDAY',
+  title: 'Tariq Birthday',
+  description: null,
+  date: new Date('2024-01-01'),
+  visibility: 'FAMILY',
+  branchLabel: null,
+  createdAt: new Date(),
+  createdById: 'user-1',
+  createdBy: { id: 'user-1', username: 'tariq', profilePicUrl: null },
   taggedPersons: [],
-  media:         [],
-  _count:        { comments: 0, likes: 0 },
+  media: [],
+  _count: { comments: 0, likes: 0 },
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(familyRepository.getMembership).mockResolvedValue(MEMBERSHIP as never)
-  vi.mocked(eventRepository.eventBelongsToTree).mockResolvedValue({ id: 'event-1', createdById: 'user-1' })
+  vi.mocked(eventRepository.eventBelongsToTree).mockResolvedValue({
+    id: 'event-1',
+    createdById: 'user-1',
+  })
 })
 
 describe('eventService.createEvent', () => {
@@ -57,35 +65,46 @@ describe('eventService.createEvent', () => {
     vi.mocked(eventRepository.create).mockResolvedValue(BASE_EVENT as never)
 
     const result = await eventService.createEvent('user-1', 'tree-1', {
-      type:            'BIRTHDAY',
-      title:           'Tariq Birthday',
-      date:            new Date('2024-01-01').toISOString(),
-      visibility:      'FAMILY',
+      type: 'BIRTHDAY',
+      title: 'Tariq Birthday',
+      date: new Date('2024-01-01').toISOString(),
+      visibility: 'FAMILY',
       taggedPersonIds: [],
+      notifyGroup: 'all',
     })
 
     expect(result.title).toBe('Tariq Birthday')
     expect(vi.mocked(eventRepository.create)).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'BIRTHDAY', title: 'Tariq Birthday', treeId: 'tree-1' }),
     )
+    expect(vi.mocked(notificationFanout.add)).toHaveBeenCalledWith(
+      'fanout',
+      expect.objectContaining({ treeId: 'tree-1', eventId: 'event-1', notifyGroup: 'all' }),
+    )
   })
 
   it('throws 403 when user is not a member', async () => {
     vi.mocked(familyRepository.getMembership).mockResolvedValue(null)
 
-    await expect(eventService.createEvent('stranger', 'tree-1', {
-      type:            'BIRTHDAY',
-      title:           'Test',
-      date:            new Date().toISOString(),
-      visibility:      'FAMILY',
-      taggedPersonIds: [],
-    })).rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      eventService.createEvent('stranger', 'tree-1', {
+        type: 'BIRTHDAY',
+        title: 'Test',
+        date: new Date().toISOString(),
+        visibility: 'FAMILY',
+        taggedPersonIds: [],
+        notifyGroup: 'all',
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 })
   })
 })
 
 describe('eventService.listEvents', () => {
   it('returns paginated events', async () => {
-    vi.mocked(eventRepository.listByTree).mockResolvedValue([BASE_EVENT as never, BASE_EVENT as never])
+    vi.mocked(eventRepository.listByTree).mockResolvedValue([
+      BASE_EVENT as never,
+      BASE_EVENT as never,
+    ])
 
     const result = await eventService.listEvents('user-1', 'tree-1', { limit: 1 })
     expect(result.items).toHaveLength(1)
@@ -108,15 +127,21 @@ describe('eventService.updateEvent', () => {
     vi.mocked(eventRepository.update).mockResolvedValue(updated as never)
     vi.mocked(eventRepository.findById).mockResolvedValue(updated as never)
 
-    const result = await eventService.updateEvent('user-1', 'tree-1', 'event-1', { title: 'Updated Title' })
+    const result = await eventService.updateEvent('user-1', 'tree-1', 'event-1', {
+      title: 'Updated Title',
+    })
     expect(result?.title).toBe('Updated Title')
   })
 
   it('throws 403 when user is not the event creator', async () => {
-    vi.mocked(eventRepository.eventBelongsToTree).mockResolvedValue({ id: 'event-1', createdById: 'other-user' })
+    vi.mocked(eventRepository.eventBelongsToTree).mockResolvedValue({
+      id: 'event-1',
+      createdById: 'other-user',
+    })
 
-    await expect(eventService.updateEvent('user-1', 'tree-1', 'event-1', { title: 'X' }))
-      .rejects.toMatchObject({ statusCode: 403 })
+    await expect(
+      eventService.updateEvent('user-1', 'tree-1', 'event-1', { title: 'X' }),
+    ).rejects.toMatchObject({ statusCode: 403 })
   })
 })
 
@@ -129,17 +154,22 @@ describe('eventService.deleteEvent', () => {
   })
 
   it('throws 403 when user is not the event creator', async () => {
-    vi.mocked(eventRepository.eventBelongsToTree).mockResolvedValue({ id: 'event-1', createdById: 'other-user' })
+    vi.mocked(eventRepository.eventBelongsToTree).mockResolvedValue({
+      id: 'event-1',
+      createdById: 'other-user',
+    })
 
-    await expect(eventService.deleteEvent('user-1', 'tree-1', 'event-1'))
-      .rejects.toMatchObject({ statusCode: 403 })
+    await expect(eventService.deleteEvent('user-1', 'tree-1', 'event-1')).rejects.toMatchObject({
+      statusCode: 403,
+    })
   })
 
   it('throws 404 when event does not exist in this tree', async () => {
     vi.mocked(eventRepository.eventBelongsToTree).mockResolvedValue(null)
 
-    await expect(eventService.deleteEvent('user-1', 'tree-1', 'nonexistent'))
-      .rejects.toMatchObject({ statusCode: 404 })
+    await expect(eventService.deleteEvent('user-1', 'tree-1', 'nonexistent')).rejects.toMatchObject(
+      { statusCode: 404 },
+    )
   })
 })
 
@@ -154,7 +184,7 @@ describe('eventService.toggleLike', () => {
 
   it('removes like when already liked', async () => {
     vi.mocked(eventRepository.getLike).mockResolvedValue({ id: 'like-1' } as never)
-    vi.mocked(eventRepository.removeLike).mockResolvedValue({ count: 1 } as never)
+    vi.mocked(eventRepository.removeLike).mockResolvedValue({ count: 1 })
 
     const result = await eventService.toggleLike('user-1', 'tree-1', 'event-1')
     expect(result.liked).toBe(false)

@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "cto-team@local": true
-  },
   "permissions": {
     "allow": [
       "Bash(npm run *)",
@@ -14,14 +11,14 @@
       "Bash(docker exec *)",
       "Bash(curl http://localhost:*)",
       "Bash(pkill -f tsx*)",
-      "Bash(pkill -f *)",
       "Bash(lsof *)",
       "Bash(cat /tmp/*.log*)",
       "Bash(cat /tmp/api.log)",
       "Bash(python3 *)",
       "Bash(jq *)",
       "Bash(grep *)",
-      "Bash(find . *)"
+      "Bash(find . *)",
+      "Bash(./scripts/local-dev.sh *)"
     ]
   },
   "hooks": {

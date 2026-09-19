@@ -24,27 +24,48 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(201).send(event)
   })
 
-  // GET /trees/:treeId/events/:eventId
-  fastify.get<{ Params: { treeId: string; eventId: string } }>('/:eventId', { ...guard }, async (req) => {
-    return eventService.getEvent(req.user.sub, req.params.treeId, req.params.eventId)
+  // GET /trees/:treeId/events/on-this-day
+  fastify.get<{ Params: { treeId: string } }>('/on-this-day', { ...guard }, async (req) => {
+    return eventService.getOnThisDay(req.user.sub, req.params.treeId)
   })
+
+  // GET /trees/:treeId/events/:eventId
+  fastify.get<{ Params: { treeId: string; eventId: string } }>(
+    '/:eventId',
+    { ...guard },
+    async (req) => {
+      return eventService.getEvent(req.user.sub, req.params.treeId, req.params.eventId)
+    },
+  )
 
   // PATCH /trees/:treeId/events/:eventId
-  fastify.patch<{ Params: { treeId: string; eventId: string } }>('/:eventId', { ...guard }, async (req) => {
-    const body = updateEventSchema.parse(req.body)
-    return eventService.updateEvent(req.user.sub, req.params.treeId, req.params.eventId, body)
-  })
+  fastify.patch<{ Params: { treeId: string; eventId: string } }>(
+    '/:eventId',
+    { ...guard },
+    async (req) => {
+      const body = updateEventSchema.parse(req.body)
+      return eventService.updateEvent(req.user.sub, req.params.treeId, req.params.eventId, body)
+    },
+  )
 
   // DELETE /trees/:treeId/events/:eventId
-  fastify.delete<{ Params: { treeId: string; eventId: string } }>('/:eventId', { ...guard }, async (req, reply) => {
-    await eventService.deleteEvent(req.user.sub, req.params.treeId, req.params.eventId)
-    return reply.code(204).send()
-  })
+  fastify.delete<{ Params: { treeId: string; eventId: string } }>(
+    '/:eventId',
+    { ...guard },
+    async (req, reply) => {
+      await eventService.deleteEvent(req.user.sub, req.params.treeId, req.params.eventId)
+      return reply.code(204).send()
+    },
+  )
 
   // POST /trees/:treeId/events/:eventId/like
-  fastify.post<{ Params: { treeId: string; eventId: string } }>('/:eventId/like', { ...guard }, async (req) => {
-    return eventService.toggleLike(req.user.sub, req.params.treeId, req.params.eventId)
-  })
+  fastify.post<{ Params: { treeId: string; eventId: string } }>(
+    '/:eventId/like',
+    { ...guard },
+    async (req) => {
+      return eventService.toggleLike(req.user.sub, req.params.treeId, req.params.eventId)
+    },
+  )
 }
 
 export default eventRoutes

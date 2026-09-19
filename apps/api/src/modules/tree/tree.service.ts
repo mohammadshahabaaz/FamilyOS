@@ -24,9 +24,7 @@ export const treeService = {
       treeRepository.getEdges(treeId),
     ])
 
-    const genderMap = new Map(
-      persons.map((p) => [p.id, p.gender as 'MALE' | 'FEMALE' | 'OTHER']),
-    )
+    const genderMap = new Map(persons.map((p) => [p.id, p.gender]))
 
     const allIds = persons.map((p) => p.id)
     const relationshipMap = computeAllRelationships(fromPersonId, allIds, edges, genderMap)
@@ -67,7 +65,7 @@ export const treeService = {
         id: m.id,
         type: m.type,
         caption: m.caption,
-        url: m.r2Key,        // in dev, r2Key holds placeholder URL
+        url: m.r2Key, // in dev, r2Key holds placeholder URL
         thumbnail: m.thumbnailR2Key ?? m.r2Key,
       })),
       comments: e.comments,

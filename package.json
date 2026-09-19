@@ -8,12 +8,30 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "overrides": {
+    "ioredis": "5.11.1"
+  },
   "scripts": {
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:mobile": "npm run start --workspace=apps/mobile",
     "db:migrate": "npm run db:migrate --workspace=apps/api",
     "db:generate": "npm run db:generate --workspace=apps/api",
     "db:studio": "npm run db:studio --workspace=apps/api",
-    "test": "npm run test --workspace=apps/api"
+    "test": "npm run test --workspace=apps/api",
+    "build": "npm run build --workspace=apps/api",
+    "db:push:ci": "npm run db:push --workspace=apps/api",
+    "type-check": "npm run typecheck --workspace=packages/shared && npx tsc --noEmit -p apps/api",
+    "type-check:mobile": "npm run typecheck --workspace=apps/mobile",
+    "lint": "eslint apps/api/src --max-warnings 0",
+    "format": "prettier --write apps/api/src apps/mobile/src packages/shared/src",
+    "format:check": "prettier --check apps/api/src apps/mobile/src packages/shared/src",
+    "test:mobile": "echo \"No mobile test suite yet — apps/mobile has zero test files (see docs/SMELLS.md)\" && exit 0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.5",
+    "typescript-eslint": "^8.64.0"
   }
 }

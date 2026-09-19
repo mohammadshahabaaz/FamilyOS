@@ -1,12 +1,10 @@
-import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { randomUUID } from 'crypto'
-import { r2, R2_BUCKET, R2_PUBLIC_URL } from '../../lib/r2.js'
+import { ConflictError } from '@familyos/shared'
+import { R2_PUBLIC_URL } from '../../lib/r2.js'
+import { presignUpload, deleteMediaObject } from '../../lib/media-presign.js'
+import { thumbnailQueue } from '../../lib/queues.js'
 import { memoryRepository } from './memory.repository.js'
 import { familyRepository } from '../family/family.repository.js'
 import { eventRepository } from '../event/event.repository.js'
-
-const PRESIGN_TTL = 600
 
 async function assertMember(userId: string, treeId: string) {
   const m = await familyRepository.getMembership(userId, treeId)
@@ -21,10 +19,15 @@ async function assertEventInTree(eventId: string, treeId: string) {
 }
 
 export const memoryService = {
-  async requestUploadUrl(userId: string, treeId: string, eventId: string, opts: {
-    mimeType:  string
-    sizeBytes: number
-  }) {
+  async requestUploadUrl(
+    userId: string,
+    treeId: string,
+    eventId: string,
+    opts: {
+      mimeType: string
+      sizeBytes: number
+    },
+  ) {
     await assertMember(userId, treeId)
     await assertEventInTree(eventId, treeId)
 
@@ -36,51 +39,61 @@ export const memoryService = {
       throw Object.assign(new Error('Storage quota exceeded'), { statusCode: 413 })
     }
 
-    const ext = opts.mimeType.startsWith('video/') ? 'mp4'
-      : opts.mimeType === 'image/webp' ? 'webp'
-      : opts.mimeType === 'image/png'  ? 'png'
-      : 'jpg'
-
-    const r2Key = `trees/${treeId}/events/${eventId}/${randomUUID()}.${ext}`
-    const type: 'PHOTO' | 'VIDEO' = opts.mimeType.startsWith('video/') ? 'VIDEO' : 'PHOTO'
-
-    const command = new PutObjectCommand({
-      Bucket:        R2_BUCKET,
-      Key:           r2Key,
-      ContentType:   opts.mimeType,
-      ContentLength: opts.sizeBytes,
-    })
-
-    const uploadUrl = await getSignedUrl(r2, command, { expiresIn: PRESIGN_TTL })
-    return { uploadUrl, r2Key, type, expiresIn: PRESIGN_TTL }
+    return presignUpload(`trees/${treeId}/events/${eventId}`, opts)
   },
 
-  async confirmUpload(userId: string, treeId: string, eventId: string, opts: {
-    r2Key:     string
-    type:      'PHOTO' | 'VIDEO'
-    sizeBytes: number
-    caption?:  string
-  }) {
+  async confirmUpload(
+    userId: string,
+    treeId: string,
+    eventId: string,
+    opts: {
+      r2Key: string
+      type: 'PHOTO' | 'VIDEO'
+      sizeBytes: number
+      caption?: string
+      thumbnailR2Key?: string
+    },
+  ) {
     await assertMember(userId, treeId)
     await assertEventInTree(eventId, treeId)
+
+    // Reserve quota atomically before creating the Media row — if two confirmUpload
+    // calls race, only the ones that actually fit are allowed to reserve space.
+    const withinLimit = await memoryRepository.incrementStorageUsedIfWithinLimit(
+      treeId,
+      BigInt(opts.sizeBytes),
+    )
+    if (!withinLimit) {
+      throw new ConflictError('Storage quota exceeded')
+    }
 
     const media = await memoryRepository.createMedia({
       eventId,
       uploadedById: userId,
-      r2Key:        opts.r2Key,
-      type:         opts.type,
-      caption:      opts.caption ?? null,
-      sizeBytes:    BigInt(opts.sizeBytes),
+      r2Key: opts.r2Key,
+      type: opts.type,
+      caption: opts.caption ?? null,
+      sizeBytes: BigInt(opts.sizeBytes),
+      thumbnailR2Key: opts.thumbnailR2Key ?? null,
+      status: opts.thumbnailR2Key ? 'READY' : 'PENDING',
     })
 
-    await memoryRepository.incrementStorageUsed(treeId, BigInt(opts.sizeBytes))
+    // Video thumbnails are extracted client-side (see media-upload.ts) — only fall
+    // back to the server-side job when the client didn't already supply one.
+    if (!opts.thumbnailR2Key) {
+      await thumbnailQueue.add('generate', {
+        mediaId: media.id,
+        r2Key: opts.r2Key,
+        type: opts.type,
+      })
+    }
 
     return {
-      id:           media.id,
-      type:         media.type,
-      caption:      media.caption,
-      url:          `${R2_PUBLIC_URL}/${opts.r2Key}`,
-      thumbnailUrl: null,
+      id: media.id,
+      type: media.type,
+      caption: media.caption,
+      url: `${R2_PUBLIC_URL}/${opts.r2Key}`,
+      thumbnailUrl: opts.thumbnailR2Key ? `${R2_PUBLIC_URL}/${opts.thumbnailR2Key}` : null,
     }
   },
 
@@ -97,8 +110,10 @@ export const memoryService = {
     }
 
     try {
-      await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: media.r2Key }))
-    } catch { /* orphaned R2 object — recoverable */ }
+      await deleteMediaObject(media.r2Key)
+    } catch {
+      /* orphaned R2 object — recoverable */
+    }
 
     await memoryRepository.deleteMedia(mediaId)
     await memoryRepository.decrementStorageUsed(treeId, media.sizeBytes)
@@ -110,7 +125,12 @@ export const memoryService = {
     return memoryRepository.createComment({ eventId, userId, text })
   },
 
-  async listComments(userId: string, treeId: string, eventId: string, opts: { cursor?: string; limit: number }) {
+  async listComments(
+    userId: string,
+    treeId: string,
+    eventId: string,
+    opts: { cursor?: string; limit: number },
+  ) {
     await assertMember(userId, treeId)
     await assertEventInTree(eventId, treeId)
 

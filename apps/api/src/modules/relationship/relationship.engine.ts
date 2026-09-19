@@ -33,19 +33,25 @@ function buildAdjacency(edges: GraphEdge[]): AdjList {
   return adj
 }
 
-function bfs(from: string, to: string, adj: AdjList, maxDepth = 7): RelationStep[] | null {
+export interface PathStep {
+  step: RelationStep
+  via: string // the person reached by taking this step
+}
+
+function bfs(from: string, to: string, adj: AdjList, maxDepth = 7): PathStep[] | null {
   if (from === to) return []
 
-  const queue: Array<{ id: string; path: RelationStep[] }> = [{ id: from, path: [] }]
+  const queue: Array<{ id: string; path: PathStep[] }> = [{ id: from, path: [] }]
   const visited = new Set([from])
+  let head = 0
 
-  while (queue.length > 0) {
-    const { id, path } = queue.shift()!
+  while (head < queue.length) {
+    const { id, path } = queue[head++]
     if (path.length >= maxDepth) continue
 
     for (const { id: nextId, step } of adj.get(id) ?? []) {
       if (visited.has(nextId)) continue
-      const nextPath = [...path, step] as RelationStep[]
+      const nextPath = [...path, { step, via: nextId }]
       if (nextId === to) return nextPath
       visited.add(nextId)
       queue.push({ id: nextId, path: nextPath })
@@ -60,6 +66,7 @@ export function computeRelationship(
   toPersonId: string,
   edges: GraphEdge[],
   targetGender?: 'MALE' | 'FEMALE' | 'OTHER',
+  personGenders?: Map<string, 'MALE' | 'FEMALE' | 'OTHER'>,
 ): { label: string; path: string } {
   if (fromPersonId === toPersonId) return { label: 'Self', path: '' }
 
@@ -68,8 +75,9 @@ export function computeRelationship(
 
   if (!path) return { label: 'Not related', path: '' }
 
-  const pathStr = path.join('')
-  return { label: pathToLabel(pathStr, targetGender), path: pathStr }
+  const pathStr = path.map((p) => p.step).join('')
+  const viaGender = path.length > 0 ? personGenders?.get(path[0].via) : undefined
+  return { label: pathToLabel(pathStr, targetGender, viaGender), path: pathStr }
 }
 
 export function computeAllRelationships(
@@ -87,9 +95,10 @@ export function computeAllRelationships(
     if (!path) {
       results.set(toId, { label: 'Not related', path: '' })
     } else {
-      const pathStr = path.join('')
+      const pathStr = path.map((p) => p.step).join('')
+      const viaGender = path.length > 0 ? personGenders.get(path[0].via) : undefined
       results.set(toId, {
-        label: pathToLabel(pathStr, personGenders.get(toId)),
+        label: pathToLabel(pathStr, personGenders.get(toId), viaGender),
         path: pathStr,
       })
     }
@@ -98,7 +107,19 @@ export function computeAllRelationships(
   return results
 }
 
-function pathToLabel(path: string, gender?: 'MALE' | 'FEMALE' | 'OTHER'): string {
+// Paths that start with 'P' but stay within the same generation as the caller
+// (parent's other child = sibling, parent's spouse = stepparent) never take a
+// paternal/maternal prefix. Neither do pure direct-ancestor chains ("P", "PP",
+// "PPP", ...) — "Paternal Grandfather" isn't how anyone says it; the prefix is
+// reserved for lateral relations that branch off an ancestor (uncle/aunt/cousin).
+const NO_PREFIX_PATHS = new Set(['PC', 'PS'])
+const isPureAncestorChain = (path: string) => /^P+$/.test(path)
+
+function pathToLabel(
+  path: string,
+  gender?: 'MALE' | 'FEMALE' | 'OTHER',
+  viaGender?: 'MALE' | 'FEMALE' | 'OTHER',
+): string {
   const g = (m: string, f: string, n = `${m} / ${f}`) =>
     gender === 'MALE' ? m : gender === 'FEMALE' ? f : n
 
@@ -113,10 +134,10 @@ function pathToLabel(path: string, gender?: 'MALE' | 'FEMALE' | 'OTHER'): string
     // Second degree
     PP: g('Grandfather', 'Grandmother', 'Grandparent'),
     CC: g('Grandson', 'Granddaughter', 'Grandchild'),
-    PC: g('Brother', 'Sister', 'Sibling'),   // parent→their other child
-    PB: g('Uncle', 'Aunt', 'Uncle / Aunt'),  // parent→their sibling
-    BC:  g('Nephew', 'Niece', 'Niece / Nephew'),  // sibling's child
-    PCC: g('Nephew', 'Niece', 'Niece / Nephew'),  // via shared grandparent (no sibling edge)
+    PC: g('Brother', 'Sister', 'Sibling'), // parent→their other child
+    PB: g('Uncle', 'Aunt', 'Uncle / Aunt'), // parent→their sibling
+    BC: g('Nephew', 'Niece', 'Niece / Nephew'), // sibling's child
+    PCC: g('Nephew', 'Niece', 'Niece / Nephew'), // via shared grandparent (no sibling edge)
     // In-laws (1st)
     SP: g('Father-in-law', 'Mother-in-law', 'Parent-in-law'),
     CS: g('Son-in-law', 'Daughter-in-law', 'Child-in-law'),
@@ -125,15 +146,15 @@ function pathToLabel(path: string, gender?: 'MALE' | 'FEMALE' | 'OTHER'): string
     // Third degree
     PPP: g('Great-grandfather', 'Great-grandmother', 'Great-grandparent'),
     CCC: g('Great-grandson', 'Great-granddaughter', 'Great-grandchild'),
-    PPC: g('Uncle', 'Aunt', 'Uncle / Aunt'),  // via grandparent
+    PPC: g('Uncle', 'Aunt', 'Uncle / Aunt'), // via grandparent
     PBC: 'First Cousin',
     PPB: g('Great-uncle', 'Great-aunt', 'Great-uncle / Great-aunt'),
     BCC: g('Grand-nephew', 'Grand-niece', 'Grand-niece / nephew'),
     // In-laws (extended)
     SPP: g('Grandfather-in-law', 'Grandmother-in-law', 'Grandparent-in-law'),
     SPC: g('Brother-in-law', 'Sister-in-law', 'Sibling-in-law'),
-    PBS:  g('Uncle-in-law', 'Aunt', 'Aunt / Uncle-in-law'),  // parent→sibling→spouse
-    PPCS: g('Uncle-in-law', 'Aunt', 'Aunt / Uncle-in-law'),  // parent→parent→child→spouse
+    PBS: g('Uncle-in-law', 'Aunt', 'Aunt / Uncle-in-law'), // parent→sibling→spouse
+    PPCS: g('Uncle-in-law', 'Aunt', 'Aunt / Uncle-in-law'), // parent→parent→child→spouse
     PPCC: 'First Cousin',
     PBCS: 'First Cousin-in-law',
     // Step
@@ -141,5 +162,14 @@ function pathToLabel(path: string, gender?: 'MALE' | 'FEMALE' | 'OTHER'): string
     SC: g('Stepson', 'Stepdaughter', 'Stepchild'),
   }
 
-  return norm[path] ?? `Relative (${path})`
+  const base = norm[path] ?? `Relative (${path})`
+
+  const eligibleForPrefix =
+    path.length > 1 && path[0] === 'P' && !NO_PREFIX_PATHS.has(path) && !isPureAncestorChain(path)
+  if (eligibleForPrefix) {
+    if (viaGender === 'MALE') return `Paternal ${base}`
+    if (viaGender === 'FEMALE') return `Maternal ${base}`
+  }
+
+  return base
 }
